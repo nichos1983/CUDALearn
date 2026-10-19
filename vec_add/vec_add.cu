@@ -7,7 +7,7 @@ __device__ void vecAddKernelImpl(float *a, float *b, float *c, int i, int n)
 {
     if (i < n)
     {
-        c[i] = 4.0 * a[i] + b[i];
+        c[i] = 4.0f * a[i] + b[i];
     }
     else
     {
