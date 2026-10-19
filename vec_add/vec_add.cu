@@ -9,10 +9,10 @@ __device__ void vecAddKernelImpl(float *a, float *b, float *c, int i, int n)
     {
         c[i] = 4.0f * a[i] + b[i];
     }
-    else
-    {
-        printf("Device: i>=n, i:%d, n:%d\n", i, n);
-    }
+    // else
+    // {
+    //     printf("Device: i>=n, i:%d, n:%d\n", i, n);
+    // }
 }
 
 __global__ void vecAddKernel(float *a, float *b, float *c, int n)
