@@ -23,15 +23,34 @@ static int persistentGrid(K k, int sms, int n)
     int blockPerSM = 0;
     CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blockPerSM, k, BLOCK_SIZE, 0));
     int blockTotal = blockPerSM * sms;
-    int need = (n + BLOCK_SIZE - 1) / BLOCK; // 小规模时不要启动比需要更多的 block
+    int need = (n + BLOCK_SIZE - 1) / BLOCK_SIZE; // 小规模时不要启动比需要更多的 block
     return std::max(1, std::min(blockTotal, need));
 }
 
-template <class K>
+__global__ void vecAddKernel_v0(const float *a, const float *b,
+                                float *c, int n)
+{
+    int i = threadIdx.x + blockDim.x * blockIdx.x;
+    if (i < n)
+    {
+        c[i] = 4.0f * a[i] + b[i];
+    }
+}
+
+__global__ void vecAddKernel_v1(const float *a, const float *b,
+                                float *c, int n)
+{
+    int i = threadIdx.x + blockDim.x * blockIdx.x;
+    if (i < n)
+    {
+        c[i] = 4.0f * a[i] + b[i];
+    }
+}
+
 int getGridDim(int version, int sms, int n)
 {
     int result = 0;
-    switch (version):
+    switch (version)
     {
         case 0:
             result = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -41,26 +60,6 @@ int getGridDim(int version, int sms, int n)
             break;
     }
     return result;
-}
-
-__global__ void vecAddKernel_v0(const float __restrict__ *a, const float __restrict__ *b,
-                                const float __restrict__ *c, int n)
-{
-    int i = threadIdx.x + blockDim.x * blockIdx.x;
-    if (i < n)
-    {
-        c[i] = 4.0f * a[i] + b[i];
-    }
-}
-
-__global__ void vecAddKernel_v1(const float __restrict__ *a, const float __restrict__ *b,
-                                const float __restrict__ *c, int n)
-{
-    int i = threadIdx.x + blockDim.x * blockIdx.x;
-    if (i < n)
-    {
-        c[i] = 4.0f * a[i] + b[i];
-    }
 }
 
 void vecAdd(float *a_h, float *b_h, float *c_h, int bytes, int gridDim)
@@ -76,7 +75,7 @@ void vecAdd(float *a_h, float *b_h, float *c_h, int bytes, int gridDim)
 
     printf("Before call kernel\n");
 
-    vecAddKernel_v0<<<gridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, n);
+    vecAddKernel_v0<<<gridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
 
     cudaDeviceSynchronize();
     printf("After call kernel\n");
@@ -117,8 +116,8 @@ int runTest()
 
     for (int i = 0; i < ARRAY_NUM; i++)
     {
-        a[i] = (float)(i % 1000);
-        b[i] = (float)(i % 500) * 0.5f;
+        ha[i] = (float)(i % 1000);
+        hb[i] = (float)(i % 500) * 0.5f;
     }
 
     int gridDim = getGridDim(TEST_KERNEL_VERSION, sms, ARRAY_NUM);
@@ -129,7 +128,7 @@ int runTest()
     printf("Result start:\n");
     for (int i = 0; i < ARRAY_NUM; i += ARRAY_NUM / 16)
     {
-        printf("i: %d, value: %.2f ", i, c[i]);
+        printf("i: %d, value: %.2f ", i, hc[i]);
     }
     printf("\nResult end\n");
 
