@@ -31,7 +31,7 @@ static int persistentGrid(K k, int sms, int n)
     return std::max(1, std::min(blockTotal, need));
 }
 
-__global__ void vecAddKernel_v0(const float *a, const float *b,
+__global__ void vecAddKernel_v0(const float* __restrict__ a, const float* __restrict__ b,
                                 float *c, int n)
 {
     int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -41,7 +41,7 @@ __global__ void vecAddKernel_v0(const float *a, const float *b,
     }
 }
 
-__global__ void vecAddKernel_v1(const float *a, const float *b,
+__global__ void vecAddKernel_v1(const float* __restrict__ a, const float* __restrict__ b,
                                 float *c, int n)
 {
     int stride = gridDim.x * blockDim.x;
@@ -51,7 +51,7 @@ __global__ void vecAddKernel_v1(const float *a, const float *b,
     }
 }
 
-void vecAddVersion(float *a_d, float *b_d, float *c_d, int version, int myGridDim)
+void vecAddVersion(float * __restrict__ a_d, float * __restrict__ b_d, float *c_d, int version, int myGridDim)
 {
     switch (version)
     {
