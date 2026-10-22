@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define TEST_KERNEL_VERSION 0
+
 #define ARRAY_NUM_LOG 26
 #define ARRAY_NUM (1 << ARRAY_NUM_LOG)
 #define BLOCK_SIZE 128
-#define TEST_KERNEL_VERSION 1
 #define WARM_UP_COUNT 5
 #define TEST_KERNEL_COUNT 20
 
@@ -50,7 +51,7 @@ __global__ void vecAddKernel_v1(const float *a, const float *b,
     }
 }
 
-void vecAddVersion(float *a_d, float *b_d, float *c_d, int myGridDim)
+void vecAddVersion(float *a_d, float *b_d, float *c_d, int version, int myGridDim)
 {
     switch (version)
     {
@@ -96,7 +97,7 @@ void vecAdd(float *a_h, float *b_h, float *c_h, int bytes, int sms, int version)
     printf("warm up start\n");
     for (int i = 0; i < WARM_UP_COUNT; i++)
     {
-        vecAddVersion(a_d, b_d, c_d, myGridDim);
+        vecAddVersion(a_d, b_d, c_d, version, myGridDim);
     }
     cudaDeviceSynchronize();
     printf("warm up end\n");
@@ -104,7 +105,7 @@ void vecAdd(float *a_h, float *b_h, float *c_h, int bytes, int sms, int version)
     printf("test kernel start, count:%d\n", TEST_KERNEL_COUNT);
     for (int i = 0; i < TEST_KERNEL_COUNT; i++)
     {
-        vecAddVersion(a_d, b_d, c_d, myGridDim);
+        vecAddVersion(a_d, b_d, c_d, version, myGridDim);
     }
     cudaDeviceSynchronize();
     printf("test kernel end\n");
