@@ -4,7 +4,7 @@
 #define ARRAY_NUM_LOG 26
 #define ARRAY_NUM (1 << ARRAY_NUM_LOG)
 #define BLOCK_SIZE 128
-#define TEST_KERNEL_VERSION 0
+#define TEST_KERNEL_VERSION 1
 
 #define CHECK(x)                                                                                    \
     do                                                                                              \
@@ -22,6 +22,7 @@ static int persistentGrid(K k, int sms, int n)
 {
     int blockPerSM = 0;
     CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blockPerSM, k, BLOCK_SIZE, 0));
+    printf("blockPerSM:%d\n", blockPerSM);
     int blockTotal = blockPerSM * sms;
     int need = (n + BLOCK_SIZE - 1) / BLOCK_SIZE; // 小规模时不要启动比需要更多的 block
     return std::max(1, std::min(blockTotal, need));
@@ -40,32 +41,17 @@ __global__ void vecAddKernel_v0(const float *a, const float *b,
 __global__ void vecAddKernel_v1(const float *a, const float *b,
                                 float *c, int n)
 {
-    int i = threadIdx.x + blockDim.x * blockIdx.x;
-    if (i < n)
+    int stride = gridDim.x * blockDim.x;
+    for (int i = threadIdx.x + blockDim.x * blockIdx.x; i < n; i += stride)
     {
         c[i] = 4.0f * a[i] + b[i];
     }
 }
 
-int getGridDim(int version, int sms, int n)
-{
-    int result = 0;
-    switch (version)
-    {
-        case 0:
-            result = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
-            break;
-        case 1:
-            result = persistentGrid(vecAddKernel_v1, sms, n);
-            break;
-    }
-    return result;
-}
-
 void vecAdd(float *a_h, float *b_h, float *c_h, int bytes, int sms, int version)
 {
     float *a_d, *b_d, *c_d;
-    int gridDim;
+    int myGridDim;
 
     CHECK(cudaMalloc((void **)&a_d, bytes));
     CHECK(cudaMalloc((void **)&b_d, bytes));
@@ -74,28 +60,26 @@ void vecAdd(float *a_h, float *b_h, float *c_h, int bytes, int sms, int version)
     cudaMemcpy(a_d, a_h, bytes, cudaMemcpyHostToDevice);
     cudaMemcpy(b_d, b_h, bytes, cudaMemcpyHostToDevice);
 
-    printf("Before call kernel\n");
+    printf("Before call kernel version: %d\n", version);
 
     switch (version)
     {
         case 0:
-            gridDim = (ARRAY_NUM + BLOCK_SIZE - 1) / BLOCK_SIZE;
-            vecAddKernel_v0<<<gridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
+            myGridDim = (ARRAY_NUM + BLOCK_SIZE - 1) / BLOCK_SIZE;
+            vecAddKernel_v0<<<myGridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
             break;
         case 1:
-            gridDim = persistentGrid(vecAddKernel_v1, sms, ARRAY_NUM);
-            vecAddKernel_v1<<<gridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
+            myGridDim = persistentGrid(vecAddKernel_v1, sms, ARRAY_NUM);
+            vecAddKernel_v1<<<myGridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
             break;
     }
 
-    printf("gridDim: %d\n", gridDim);
+    printf("myGridDim: %d\n", myGridDim);
 
     cudaDeviceSynchronize();
     printf("After call kernel\n");
 
     cudaMemcpy(c_h, c_d, bytes, cudaMemcpyDeviceToHost);
-
-    printf("After call memcpy\n");
 
     cudaFree(a_d);
     cudaFree(b_d);
