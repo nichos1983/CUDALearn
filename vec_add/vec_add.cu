@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define TEST_KERNEL_VERSION 0
+#define TEST_KERNEL_VERSION 1
 
 #define ARRAY_NUM_LOG 26
 #define ARRAY_NUM (1 << ARRAY_NUM_LOG)
