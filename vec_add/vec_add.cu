@@ -62,9 +62,10 @@ int getGridDim(int version, int sms, int n)
     return result;
 }
 
-void vecAdd(float *a_h, float *b_h, float *c_h, int bytes, int gridDim)
+void vecAdd(float *a_h, float *b_h, float *c_h, int bytes, int sms, int version)
 {
     float *a_d, *b_d, *c_d;
+    int gridDim;
 
     CHECK(cudaMalloc((void **)&a_d, bytes));
     CHECK(cudaMalloc((void **)&b_d, bytes));
@@ -75,7 +76,19 @@ void vecAdd(float *a_h, float *b_h, float *c_h, int bytes, int gridDim)
 
     printf("Before call kernel\n");
 
-    vecAddKernel_v0<<<gridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
+    switch (version)
+    {
+        case 0:
+            gridDim = (ARRAY_NUM + BLOCK_SIZE - 1) / BLOCK_SIZE;
+            vecAddKernel_v0<<<gridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
+            break;
+        case 1:
+            gridDim = persistentGrid(vecAddKernel_v1, sms, ARRAY_NUM);
+            vecAddKernel_v1<<<gridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
+            break;
+    }
+
+    printf("gridDim: %d\n", gridDim);
 
     cudaDeviceSynchronize();
     printf("After call kernel\n");
@@ -120,10 +133,7 @@ int runTest()
         hb[i] = (float)(i % 500) * 0.5f;
     }
 
-    int gridDim = getGridDim(TEST_KERNEL_VERSION, sms, ARRAY_NUM);
-    printf("gridDim: %d\n", gridDim);
-
-    vecAdd(ha, hb, hc, bytes, gridDim);
+    vecAdd(ha, hb, hc, bytes, sms, TEST_KERNEL_VERSION);
 
     printf("Result start:\n");
     for (int i = 0; i < ARRAY_NUM; i += ARRAY_NUM / 16)
