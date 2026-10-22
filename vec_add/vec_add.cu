@@ -5,6 +5,8 @@
 #define ARRAY_NUM (1 << ARRAY_NUM_LOG)
 #define BLOCK_SIZE 128
 #define TEST_KERNEL_VERSION 1
+#define WARM_UP_COUNT 5
+#define TEST_KERNEL_COUNT 20
 
 #define CHECK(x)                                                                                    \
     do                                                                                              \
@@ -48,6 +50,21 @@ __global__ void vecAddKernel_v1(const float *a, const float *b,
     }
 }
 
+void vecAddVersion(float *a_d, float *b_d, float *c_d, int myGridDim)
+{
+    switch (version)
+    {
+        case 0:
+            vecAddKernel_v0<<<myGridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
+            break;
+        case 1:
+            vecAddKernel_v1<<<myGridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
+            break;
+        default:
+            break;
+    }
+}
+
 void vecAdd(float *a_h, float *b_h, float *c_h, int bytes, int sms, int version)
 {
     float *a_d, *b_d, *c_d;
@@ -66,18 +83,31 @@ void vecAdd(float *a_h, float *b_h, float *c_h, int bytes, int sms, int version)
     {
         case 0:
             myGridDim = (ARRAY_NUM + BLOCK_SIZE - 1) / BLOCK_SIZE;
-            vecAddKernel_v0<<<myGridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
             break;
         case 1:
             myGridDim = persistentGrid(vecAddKernel_v1, sms, ARRAY_NUM);
-            vecAddKernel_v1<<<myGridDim, BLOCK_SIZE>>>(a_d, b_d, c_d, ARRAY_NUM);
+            break;
+        default:
+            fprintf(stderr, "version error:%d\n", version);
             break;
     }
-
     printf("myGridDim: %d\n", myGridDim);
 
+    printf("warm up start\n");
+    for (int i = 0; i < WARM_UP_COUNT; i++)
+    {
+        vecAddVersion(a_d, b_d, c_d, myGridDim);
+    }
     cudaDeviceSynchronize();
-    printf("After call kernel\n");
+    printf("warm up end\n");
+
+    printf("test kernel start, count:%d\n", TEST_KERNEL_COUNT);
+    for (int i = 0; i < TEST_KERNEL_COUNT; i++)
+    {
+        vecAddVersion(a_d, b_d, c_d, myGridDim);
+    }
+    cudaDeviceSynchronize();
+    printf("test kernel end\n");
 
     cudaMemcpy(c_h, c_d, bytes, cudaMemcpyDeviceToHost);
 
