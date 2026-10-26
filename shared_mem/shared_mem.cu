@@ -66,9 +66,14 @@ __global__ void setRowReadColDynamicPad(int *out)
 void printResult(int *out)
 {
     printf("* result start: *\n");
-    for (int i = 0; i < 2 * SHARED_BLOCK_DIM_X * SHARED_BLOCK_DIM_Y; i++)
+    for (int k = 0; k < 2; k++)
     {
-        printf("%d ", out[i]);
+        printf("--- loop %d ---\n", k);
+        for (int i = 0; i < SHARED_BLOCK_DIM_X * SHARED_BLOCK_DIM_Y; i++)
+        {
+            printf("%d ", out[i]);
+        }
+        printf("\n");
     }
     printf("\n* result end *\n");
 }
@@ -90,17 +95,17 @@ int runTest()
     dim3 blockDim(SHARED_BLOCK_DIM_X, SHARED_BLOCK_DIM_Y);
 
     printf("=== setRowReadRow ===\n");
-    setRowReadRow<SHARED_BLOCK_COUNT, blockDim>(d_out);
+    setRowReadRow<<<SHARED_BLOCK_COUNT, blockDim>>>(d_out);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out);
 
     printf("=== setColReadCol ===\n");
-    setColReadCol<SHARED_BLOCK_COUNT, blockDim>(d_out);
+    setColReadCol<<<SHARED_BLOCK_COUNT, blockDim>>>(d_out);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out);
 
     printf("=== setRowReadCol ===\n");
-    setRowReadCol<SHARED_BLOCK_COUNT, blockDim>(d_out);
+    setRowReadCol<<<SHARED_BLOCK_COUNT, blockDim>>>(d_out);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out);
 
