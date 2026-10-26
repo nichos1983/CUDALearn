@@ -4,6 +4,7 @@
 #define SHARED_BLOCK_DIM_X 32
 #define SHARED_BLOCK_DIM_Y 32
 #define SHARED_BLOCK_COUNT (1 << 8)
+#define LOAD_STORE_ITER_COUNT 16
 
 #define BLOCK_SIZE 128
 
@@ -23,9 +24,13 @@ __global__ void setRowReadRow(int *out)
     __shared__ int tile[SHARED_BLOCK_DIM_Y][SHARED_BLOCK_DIM_X];
 
     unsigned int idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
-    tile[threadIdx.y][threadIdx.x] = idx;
-    __syncthreads();
-    out[idx] = tile[threadIdx.y][threadIdx.x];
+
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
+    {
+        tile[threadIdx.y][threadIdx.x] = idx;
+        __syncthreads();
+        out[idx] = tile[threadIdx.y][threadIdx.x];
+    }
 }
 
 __global__ void setColReadCol(int *out)
@@ -33,9 +38,12 @@ __global__ void setColReadCol(int *out)
     __shared__ int tile[SHARED_BLOCK_DIM_X][SHARED_BLOCK_DIM_Y];
 
     unsigned int idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
-    tile[threadIdx.x][threadIdx.y] = idx;
-    __syncthreads();
-    out[idx] = tile[threadIdx.x][threadIdx.y];
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
+    {
+        tile[threadIdx.x][threadIdx.y] = idx;
+        __syncthreads();
+        out[idx] = tile[threadIdx.x][threadIdx.y];
+    }
 }
 
 __global__ void setRowReadCol(int *out)
@@ -43,9 +51,12 @@ __global__ void setRowReadCol(int *out)
     __shared__ int tile[SHARED_BLOCK_DIM_X][SHARED_BLOCK_DIM_Y];
 
     unsigned int idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
-    tile[threadIdx.y][threadIdx.x] = idx;
-    __syncthreads();
-    out[idx] = tile[threadIdx.x][threadIdx.y];
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
+    {
+        tile[threadIdx.y][threadIdx.x] = idx;
+        __syncthreads();
+        out[idx] = tile[threadIdx.x][threadIdx.y];
+    }
 }
 
 __global__ void setRowReadColDynamic(int *out)
@@ -69,7 +80,7 @@ void printResult(int *out)
     for (int k = 0; k < 2; k++)
     {
         printf("--- loop %d ---\n", k);
-        for (int i = 0; i < SHARED_BLOCK_DIM_X * SHARED_BLOCK_DIM_Y; i++)
+        for (int i = 0; i < SHARED_BLOCK_DIM_X * 4; i++)
         {
             printf("%d ", out[i]);
         }
@@ -93,6 +104,11 @@ int runTest()
     CHECK(cudaMalloc((void **)&d_out, bytes));
 
     dim3 blockDim(SHARED_BLOCK_DIM_X, SHARED_BLOCK_DIM_Y);
+
+    printf("=== For warmup. setRowReadRow ===\n");
+    setRowReadRow<<<SHARED_BLOCK_COUNT, blockDim>>>(d_out);
+    cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
+    printResult(h_out);
 
     printf("=== setRowReadRow ===\n");
     setRowReadRow<<<SHARED_BLOCK_COUNT, blockDim>>>(d_out);
