@@ -61,7 +61,17 @@ __global__ void setRowReadCol(int *out)
 
 __global__ void setRowReadColDynamic(int *out)
 {
+    extern __shared__ int tile[];
+    unsigned int globalRowIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int sharedRowIdx = threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int sharedColIdx = threadIdx.x * blockDim.x + threadIdx.y;
 
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
+    {
+        tile[sharedRowIdx] = sharedRowIdx;
+        __syncthreads();
+        out[globalRowIdx] = tile[sharedColIdx];
+    }
 }
 
 __global__ void setRowReadColPad(int *out)
@@ -122,6 +132,12 @@ int runTest()
 
     printf("=== setRowReadCol ===\n");
     setRowReadCol<<<SHARED_BLOCK_COUNT, blockDim>>>(d_out);
+    cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
+    printResult(h_out);
+
+    printf("=== setRowReadColDynamic ===\n");
+    unsigned int sharedMemBytes = SHARED_BLOCK_DIM_X * SHARED_BLOCK_DIM_Y * sizeof(int);
+    setRowReadColDynamic<<<SHARED_BLOCK_COUNT, blockDim, sharedMemBytes>>>(d_out);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out);
 
