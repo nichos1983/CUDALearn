@@ -74,9 +74,18 @@ __global__ void setRowReadColDynamic(int *out)
     }
 }
 
+template<int PADDING_NUM>
 __global__ void setRowReadColPad(int *out)
 {
+    __shared__ int tile[SHARED_BLOCK_DIM_X][SHARED_BLOCK_DIM_Y + PADDING_NUM];
 
+    unsigned int idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
+    {
+        tile[threadIdx.y][threadIdx.x] = idx;
+        __syncthreads();
+        out[idx] = tile[threadIdx.x][threadIdx.y];
+    }
 }
 
 __global__ void setRowReadColDynamicPad(int *out)
@@ -138,6 +147,16 @@ int runTest()
     printf("=== setRowReadColDynamic ===\n");
     unsigned int sharedMemBytes = SHARED_BLOCK_DIM_X * SHARED_BLOCK_DIM_Y * sizeof(int);
     setRowReadColDynamic<<<SHARED_BLOCK_COUNT, blockDim, sharedMemBytes>>>(d_out);
+    cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
+    printResult(h_out);
+
+    printf("=== setRowReadCol pad 1 ===\n");
+    setRowReadColPad<1><<<SHARED_BLOCK_COUNT, blockDim>>>(d_out);
+    cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
+    printResult(h_out);
+
+    printf("=== setRowReadCol pad 2 ===\n");
+    setRowReadColPad<2><<<SHARED_BLOCK_COUNT, blockDim>>>(d_out);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out);
 
