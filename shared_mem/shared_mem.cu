@@ -88,9 +88,21 @@ __global__ void setRowReadColPad(int *out)
     }
 }
 
+template<int PADDING_NUM>
 __global__ void setRowReadColDynamicPad(int *out)
 {
+    extern __shared__ int tile[];
 
+    unsigned int globalRowIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int sharedRowIdx = threadIdx.y * (blockDim.x + PADDING_NUM) + threadIdx.x;
+    unsigned int sharedColIdx = threadIdx.x * (blockDim.x + PADDING_NUM) + threadIdx.y;
+
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
+    {
+        tile[sharedRowIdx] = sharedRowIdx;
+        __syncthreads();
+        out[globalRowIdx] = tile[sharedColIdx];
+    }
 }
 
 void printResult(int *out)
@@ -145,8 +157,8 @@ int runTest()
     printResult(h_out);
 
     printf("=== setRowReadColDynamic ===\n");
-    unsigned int sharedMemBytes = SHARED_BLOCK_DIM_X * SHARED_BLOCK_DIM_Y * sizeof(int);
-    setRowReadColDynamic<<<SHARED_BLOCK_COUNT, blockDim, sharedMemBytes>>>(d_out);
+    unsigned int dynamicBytes = SHARED_BLOCK_DIM_X * SHARED_BLOCK_DIM_Y * sizeof(int);
+    setRowReadColDynamic<<<SHARED_BLOCK_COUNT, blockDim, dynamicBytes>>>(d_out);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out);
 
@@ -157,6 +169,20 @@ int runTest()
 
     printf("=== setRowReadCol pad 2 ===\n");
     setRowReadColPad<2><<<SHARED_BLOCK_COUNT, blockDim>>>(d_out);
+    cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
+    printResult(h_out);
+
+    printf("=== setRowReadColDynamicPad pad 1 ===\n");
+    unsigned int pad1 = 1;
+    unsigned int dynamicPadBytes1 = (SHARED_BLOCK_DIM_X + pad1) * SHARED_BLOCK_DIM_Y * sizeof(int);
+    setRowReadColDynamic<pad1><<<SHARED_BLOCK_COUNT, blockDim, dynamicPadBytes1>>>(d_out);
+    cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
+    printResult(h_out);
+
+    printf("=== setRowReadColDynamicPad pad 1 ===\n");
+    unsigned int pad2 = 2;
+    unsigned int dynamicPadBytes2 = (SHARED_BLOCK_DIM_X + pad2) * SHARED_BLOCK_DIM_Y * sizeof(int);
+    setRowReadColDynamic<pad2><<<SHARED_BLOCK_COUNT, blockDim, dynamicPadBytes2>>>(d_out);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out);
 
