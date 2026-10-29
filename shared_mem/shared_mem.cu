@@ -86,7 +86,7 @@ __global__ void setRowReadColDynamic(int *out)
 template<int PADDING_NUM>
 __global__ void setRowReadColPad(int *out)
 {
-    __shared__ int tile[SHARED_BLOCK_DIM_X][SHARED_BLOCK_DIM_Y + PADDING_NUM];
+    __shared__ int tile[SHARED_BLOCK_DIM_Y][SHARED_BLOCK_DIM_X + PADDING_NUM];
 
     unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
     unsigned int localIdx = threadIdx.y * blockDim.x + threadIdx.x;
