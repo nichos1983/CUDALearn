@@ -83,6 +83,9 @@ __global__ void setRowReadColDynamic(int *out)
     }
 }
 
+// Note:
+// When PADDING_NUM = 1, there is 2.0 - way bank conflict.
+// When PADDING_NUM = 2, there is no bank conflict.
 template<int PADDING_NUM>
 __global__ void setRowReadColPad(int *out)
 {
@@ -100,6 +103,10 @@ __global__ void setRowReadColPad(int *out)
     }
 }
 
+// Note:
+// The same as setRowReadColPad.
+// When PADDING_NUM = 1, there is 2.0 - way bank conflict.
+// When PADDING_NUM = 2, there is no bank conflict.
 template<int PADDING_NUM>
 __global__ void setRowReadColDynamicPad(int *out)
 {
