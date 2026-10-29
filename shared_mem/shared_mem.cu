@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #define SHARED_BLOCK_DIM_X 32
-#define SHARED_BLOCK_DIM_Y 32
+#define SHARED_BLOCK_DIM_Y 16
 #define SHARED_BLOCK_COUNT (1 << 8)
 #define LOAD_STORE_ITER_COUNT 16
 #define PADDING_1 1
@@ -25,13 +25,13 @@ __global__ void setRowReadRow(int *out)
 {
     __shared__ int tile[SHARED_BLOCK_DIM_Y][SHARED_BLOCK_DIM_X];
 
-    unsigned int idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
 
     for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
     {
-        tile[threadIdx.y][threadIdx.x] = idx;
+        tile[threadIdx.y][threadIdx.x] = globalIdx;
         __syncthreads();
-        out[idx] = tile[threadIdx.y][threadIdx.x];
+        out[globalIdx] = tile[threadIdx.y][threadIdx.x];
     }
 }
 
@@ -39,40 +39,47 @@ __global__ void setColReadCol(int *out)
 {
     __shared__ int tile[SHARED_BLOCK_DIM_X][SHARED_BLOCK_DIM_Y];
 
-    unsigned int idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
     for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
     {
-        tile[threadIdx.x][threadIdx.y] = idx;
+        tile[threadIdx.x][threadIdx.y] = globalIdx;
         __syncthreads();
-        out[idx] = tile[threadIdx.x][threadIdx.y];
+        out[globalIdx] = tile[threadIdx.x][threadIdx.y];
     }
 }
 
 __global__ void setRowReadCol(int *out)
 {
-    __shared__ int tile[SHARED_BLOCK_DIM_X][SHARED_BLOCK_DIM_Y];
+    __shared__ int tile[SHARED_BLOCK_DIM_Y][SHARED_BLOCK_DIM_X];
 
-    unsigned int idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int localIdx = threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int transRow = localIdx / blockDim.y;
+    unsigned int transCol = localIdx % blockDim.y;
     for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
     {
-        tile[threadIdx.y][threadIdx.x] = idx;
+        tile[threadIdx.y][threadIdx.x] = globalIdx;
         __syncthreads();
-        out[idx] = tile[threadIdx.x][threadIdx.y];
+        out[globalIdx] = tile[transCol][transRow];
     }
 }
 
 __global__ void setRowReadColDynamic(int *out)
 {
     extern __shared__ int tile[];
-    unsigned int globalRowIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
-    unsigned int sharedRowIdx = threadIdx.y * blockDim.x + threadIdx.x;
-    unsigned int sharedColIdx = threadIdx.x * blockDim.x + threadIdx.y;
+
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int localIdx = threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int transRow = localIdx / blockDim.y;
+    unsigned int transCol = localIdx % blockDim.y;
+    
+    unsigned int transLocalIdx = transCol * blockDim.x + transRow;
 
     for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
     {
-        tile[sharedRowIdx] = globalRowIdx;
+        tile[localIdx] = globalIdx;
         __syncthreads();
-        out[globalRowIdx] = tile[sharedColIdx];
+        out[globalIdx] = tile[transLocalIdx];
     }
 }
 
@@ -81,12 +88,15 @@ __global__ void setRowReadColPad(int *out)
 {
     __shared__ int tile[SHARED_BLOCK_DIM_X][SHARED_BLOCK_DIM_Y + PADDING_NUM];
 
-    unsigned int idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int localIdx = threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int transRow = localIdx / blockDim.y;
+    unsigned int transCol = localIdx % blockDim.y;
     for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
     {
-        tile[threadIdx.y][threadIdx.x] = idx;
+        tile[threadIdx.y][threadIdx.x] = globalIdx;
         __syncthreads();
-        out[idx] = tile[threadIdx.x][threadIdx.y];
+        out[globalIdx] = tile[transCol][transRow];
     }
 }
 
@@ -95,15 +105,19 @@ __global__ void setRowReadColDynamicPad(int *out)
 {
     extern __shared__ int tile[];
 
-    unsigned int globalRowIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
-    unsigned int sharedRowIdx = threadIdx.y * (blockDim.x + PADDING_NUM) + threadIdx.x;
-    unsigned int sharedColIdx = threadIdx.x * (blockDim.x + PADDING_NUM) + threadIdx.y;
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int localIdx = threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int transRow = localIdx / blockDim.y;
+    unsigned int transCol = localIdx % blockDim.y;
+
+    unsigned int localPadIdx = threadIdx.y * (blockDim.x + PADDING_NUM) + threadIdx.x;
+    unsigned int transLocalPadIdx = transCol * (blockDim.x + PADDING_NUM) + transRow;
 
     for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
     {
-        tile[sharedRowIdx] = globalRowIdx;
+        tile[localPadIdx] = globalIdx;
         __syncthreads();
-        out[globalRowIdx] = tile[sharedColIdx];
+        out[globalIdx] = tile[transLocalPadIdx];
     }
 }
 
