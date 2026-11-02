@@ -2,7 +2,6 @@
 #include <stdlib.h>
 
 #define MASK_ALL_32 0xFFFFFFFF
-#define WARP_SIZE 32
 
 #define GRID_SIZE 2
 #define BLOCK_SIZE (32 * 4)
@@ -17,6 +16,8 @@
 #define TEST_XOR_MASK_1 1
 #define TEST_XOR_MASK_3 3
 #define TEST_XOR_MASK_7 7
+
+#define REDUCE_SHARED_MEM_SIZE 32
 
 #define CHECK(x)                                                                                    \
     do                                                                                              \
@@ -56,7 +57,7 @@ __global__ void shuffleDown(int *out, int *in, int const delta, int width)
 __global__ void shuffleWrap(int *out, int *in, int const offset, int width)
 {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    unsigned int warpIdx = threadIdx.x % WARP_SIZE;
+    unsigned int warpIdx = threadIdx.x % warpSize;
     int value = in[idx];
     value = __shfl_sync(MASK_ALL_32, value, warpIdx + offset, width);
     out[idx] = value;
@@ -68,6 +69,63 @@ __global__ void shuffleXor(int *out, int *in, int const mask, int width)
     int value = in[idx];
     value = __shfl_xor_sync(MASK_ALL_32, value, mask, width);
     out[idx] = value;
+}
+
+template <typename T>
+__device__ __forceinline__ T warpReduceSum(T val)
+{
+    #pragma unroll
+    for (int offset = (warpSize >> 1); offset > 0; offset >>= 1)
+    {
+        val += __shfl_xor_sync(MASK_ALL_32, val, offset);
+        // val += __shfl_down_sync(MASK_ALL_32, val, offset);
+    }
+    return val;
+}
+
+template <typename T>
+__device__ inline void blockReduceSum(T val)
+{
+    static __shared__ T shared[REDUCE_SHARED_MEM_SIZE];
+
+    const int laneIdx = threadIdx.x % warpSize;
+    const int warpIdx = threadIdx.x / warpSize;
+
+    val = warpReduceSum(val);
+    __syncthreads();
+
+    if (laneIdx == 0)
+    {
+        shared[warpIdx] = val;
+    }
+    __syncthreads();
+
+    val = (threadIdx.x < blockDim.x / warpSize) ? shared[laneIdx] : T(0);
+    if (warpIdx == 0)
+    {
+        val = warpReduceSum(val);
+    }
+
+    return val;
+}
+
+template <typename T>
+__global__ void deviceReduceSum(T *input, T *output, unsigned int num)
+{
+    T sum = T(0);
+    for (int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        idx < num;
+        idx += blockDim.x * gridDim.x)
+    {
+        sum += input[idx];
+    }
+
+    sum = blockReduceSum(sum);
+    
+    if (threadIdx.x == 0)
+    {
+        output[blockIdx.x] = sum;
+    }
 }
 
 void printResult(int *out, unsigned int count)
@@ -103,6 +161,10 @@ int runTest()
     CHECK(cudaMalloc((void **)&d_out, bytes));
 
     cudaMemcpy(d_in, h_in, bytes, cudaMemcpyHostToDevice);
+
+    //
+    // Basic tests
+    //
 
     int testWidth = TEST_WIDTH_32;
     printf("=== shuffleBroadcat width:%d ===\n", testWidth);
@@ -148,6 +210,15 @@ int runTest()
     shuffleXor<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, xor_mask, testWidth);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out, TOTAL_SIZE);
+
+    //
+    // Reduce sum tests
+    //
+    
+    printf("=== deviceReduceSum ===\n");
+    deviceReduceSum<<<GRID_SIZE, BLOCK_SIZE>>>(d_in, d_out, TOTAL_SIZE);
+    cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
+    printResult(h_out, GRID_SIZE);
 
     cudaFree(d_in);
     cudaFree(d_out);
