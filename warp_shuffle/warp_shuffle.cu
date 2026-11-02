@@ -16,6 +16,7 @@
 #define TEST_LANE_OFFSET 4
 #define TEST_XOR_MASK_1 1
 #define TEST_XOR_MASK_3 3
+#define TEST_XOR_MASK_7 7
 
 #define CHECK(x)                                                                                    \
     do                                                                                              \
@@ -137,6 +138,12 @@ int runTest()
     printResult(h_out, TOTAL_SIZE);
 
     xor_mask = TEST_XOR_MASK_3;
+    printf("=== shuffleXor width:%d xor_mask:%d ===\n", testWidth, xor_mask);
+    shuffleXor<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, xor_mask, testWidth);
+    cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
+    printResult(h_out, TOTAL_SIZE);
+
+    xor_mask = TEST_XOR_MASK_7;
     printf("=== shuffleXor width:%d xor_mask:%d ===\n", testWidth, xor_mask);
     shuffleXor<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, xor_mask, testWidth);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
