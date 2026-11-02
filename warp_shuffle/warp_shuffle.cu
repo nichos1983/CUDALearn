@@ -136,7 +136,7 @@ int runTest()
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out, TOTAL_SIZE);
 
-    int xor_mask = TEST_XOR_MASK_3;
+    xor_mask = TEST_XOR_MASK_3;
     printf("=== shuffleXor width:%d xor_mask:%d ===\n", testWidth, xor_mask);
     shuffleXor<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, xor_mask, testWidth);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
