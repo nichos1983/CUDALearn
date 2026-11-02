@@ -3,7 +3,7 @@
 
 #define MASK_ALL_32 0xFFFFFFFF
 #define GRID_SIZE 2
-#define BLOCK_SIZE (32 * 2)
+#define BLOCK_SIZE (32 * 4)
 #define TOTAL_SIZE (GRID_SIZE * BLOCK_SIZE)
 #define TEST_SOURCE_LANE 2
 #define TEST_WIDTH_32 32
@@ -68,7 +68,7 @@ int runTest()
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out, TOTAL_SIZE);
 
-    int testWidth = TEST_WIDTH_16;
+    testWidth = TEST_WIDTH_16;
     printf("=== shuffleBroadcat width:%d ===\n", testWidth);
     shuffleBroadcat<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, TEST_SOURCE_LANE, testWidth);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
