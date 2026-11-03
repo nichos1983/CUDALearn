@@ -3,7 +3,8 @@
 
 #define MASK_ALL_32 0xFFFFFFFF
 
-#define GRID_SIZE 3
+// Basic tests
+#define GRID_SIZE 2
 #define BLOCK_SIZE (32 * 4)
 #define TOTAL_SIZE (GRID_SIZE * BLOCK_SIZE)
 
@@ -17,7 +18,15 @@
 #define TEST_XOR_MASK_3 3
 #define TEST_XOR_MASK_7 7
 
+// Reduce tests
 #define REDUCE_SHARED_MEM_SIZE 32
+
+#define REDUCE_GRID_SIZE 32
+#define REDUCE_BLOCK_SIZE (32 * 4)
+#define REDUCE_NUMBER_OF_GRID 6
+#define REDUCE_TOTAL_SIZE (REDUCE_NUMBER_OF_GRID * REDUCE_GRID_SIZE * REDUCE_BLOCK_SIZE)
+
+// #define DEBUG_REDUCE_PRINT
 
 #define CHECK(x)                                                                                    \
     do                                                                                              \
@@ -80,11 +89,18 @@ __device__ __forceinline__ T warpReduceSum(T val)
         val += __shfl_xor_sync(MASK_ALL_32, val, offset);
         // val += __shfl_down_sync(MASK_ALL_32, val, offset);
     }
+
+#ifdef DEBUG_REDUCE_PRINT
+    if (blockIdx.x == 0)
+    {
+        printf("warpReduceSum, threadIdx.x: %d, val: %d\n", threadIdx.x, (int)val);
+    }
+#endif
     return val;
 }
 
 template <typename T>
-__device__ inline void blockReduceSum(T val)
+__device__ inline T blockReduceSum(T val)
 {
     static __shared__ T shared[REDUCE_SHARED_MEM_SIZE];
 
@@ -113,12 +129,37 @@ template <typename T>
 __global__ void deviceReduceSum(T *input, T *output, unsigned int num)
 {
     T sum = T(0);
+
+#ifdef DEBUG_REDUCE_PRINT
+    bool check = false;
+    int checkNum = 0;
+    if (threadIdx.x == 0 && blockIdx.x == 0)
+    {
+        check = true;
+        printf("deviceReduceSum start, gridDim.x:%d, blockDim.x:%d, num:%d\n", gridDim.x, blockDim.x, num);
+    }
+#endif
+
     for (int idx = blockIdx.x * blockDim.x + threadIdx.x;
         idx < num;
         idx += blockDim.x * gridDim.x)
     {
         sum += input[idx];
+
+#ifdef DEBUG_REDUCE_PRINT
+        if (check)
+        {
+            checkNum++;
+        }
+#endif
     }
+
+#ifdef DEBUG_REDUCE_PRINT
+    if (threadIdx.x == 0 && blockIdx.x == 0)
+    {
+        printf("deviceReduceSum end, checkNum:%d\n", checkNum);
+    }
+#endif
 
     sum = blockReduceSum(sum);
     
@@ -138,7 +179,7 @@ void printResult(int *out, unsigned int count)
     printf("\n* result end *\n");
 }
 
-int runTest()
+int runBasicTests()
 {
     const size_t bytes = (size_t)TOTAL_SIZE * sizeof(int);
 
@@ -161,10 +202,6 @@ int runTest()
     CHECK(cudaMalloc((void **)&d_out, bytes));
 
     cudaMemcpy(d_in, h_in, bytes, cudaMemcpyHostToDevice);
-
-    //
-    // Basic tests
-    //
 
     int testWidth = TEST_WIDTH_32;
     printf("=== shuffleBroadcat width:%d ===\n", testWidth);
@@ -211,14 +248,42 @@ int runTest()
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out, TOTAL_SIZE);
 
-    //
-    // Reduce sum tests
-    //
+    cudaFree(d_in);
+    cudaFree(d_out);
+    free(h_in);
+    free(h_out);
+
+    return 0;
+}
+
+int runReduceTests()
+{
+    const size_t bytes = (size_t)REDUCE_TOTAL_SIZE * sizeof(int);
+
+    int *h_in = (int *)malloc(bytes);
+    int *h_out = (int *)malloc(bytes);
+    if (!h_in || !h_out)
+    {
+        fprintf(stderr, "Not enough memory\n");
+        return 1;
+    }
+
+    for (int i = 0; i < REDUCE_TOTAL_SIZE; i++)
+    {
+        h_in[i] = i % BLOCK_SIZE;
+    }
+
+    int *d_in;
+    CHECK(cudaMalloc((void **)&d_in, bytes));
+    int *d_out;
+    CHECK(cudaMalloc((void **)&d_out, bytes));
+
+    cudaMemcpy(d_in, h_in, bytes, cudaMemcpyHostToDevice);
 
     printf("=== deviceReduceSum ===\n");
-    deviceReduceSum<<<GRID_SIZE, BLOCK_SIZE>>>(d_in, d_out, TOTAL_SIZE);
+    deviceReduceSum<<<REDUCE_GRID_SIZE, REDUCE_BLOCK_SIZE>>>(d_in, d_out, REDUCE_TOTAL_SIZE);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
-    printResult(h_out, GRID_SIZE);
+    printResult(h_out, REDUCE_GRID_SIZE);
 
     cudaFree(d_in);
     cudaFree(d_out);
@@ -230,6 +295,7 @@ int runTest()
 
 int main()
 {
-    runTest();
+    runBasicTests();
+    runReduceTests();
     return 0;
 }
