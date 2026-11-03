@@ -3,7 +3,7 @@
 
 #define MASK_ALL_32 0xFFFFFFFF
 
-#define GRID_SIZE 2
+#define GRID_SIZE 3
 #define BLOCK_SIZE (32 * 4)
 #define TOTAL_SIZE (GRID_SIZE * BLOCK_SIZE)
 
@@ -214,7 +214,7 @@ int runTest()
     //
     // Reduce sum tests
     //
-    
+
     printf("=== deviceReduceSum ===\n");
     deviceReduceSum<<<GRID_SIZE, BLOCK_SIZE>>>(d_in, d_out, TOTAL_SIZE);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
