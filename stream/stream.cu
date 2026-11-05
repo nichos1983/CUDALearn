@@ -9,7 +9,7 @@
 
 #define TEST_NUM_KERNELS 64
 #define TEST_NUM_STREAMS 12
-#define TEST_REPEAT_COUNT 50000
+#define TEST_REPEAT_COUNT 100000
 
 #define CHECK(x)                                                                                    \
     do                                                                                              \
@@ -32,18 +32,21 @@ int printBasicInfo()
         cudaDeviceProp prop;
         CHECK(cudaGetDeviceProperties(&prop, i));
         printf("Device: %d, name: %s, asyncEngineCount:%d\n", i, prop.name, prop.asyncEngineCount);
-        printf("streamPrioritiesSupported: %s", prop.streamPrioritiesSupported ? "Yes" : "No");
+        printf("streamPrioritiesSupported: %s\n", prop.streamPrioritiesSupported ? "Yes" : "No");
     }
 
     return 0;
 }
 
 __global__ void workKernel(float* data, int repeat) {
+    // printf("Device: workKernel called.\n");
+
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     float val = static_cast<float>(idx);
     for (int i = 0; i < repeat; ++i) {
         val = sinf(val) * 0.99f + cosf(val) * 0.01f;
     }
+
     // avoid compile optimization
     if (idx == 0) {
         data[0] = val;
@@ -80,6 +83,8 @@ int testBasicStream()
 
 int testMultiStream(bool useMultiStream)
 {
+    printf("=== testMultiStream start. ===\n");
+
     float* d_data;
     CHECK(cudaMalloc(&d_data, sizeof(float)));
 
@@ -123,6 +128,8 @@ int testMultiStream(bool useMultiStream)
     printf("Device synced end.\n");
 
     CHECK(cudaFree(d_data));
+
+    printf("=== testMultiStream end. ===\n");
 
     return 0;
 }
