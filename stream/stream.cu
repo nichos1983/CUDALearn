@@ -33,6 +33,13 @@ int printBasicInfo()
         CHECK(cudaGetDeviceProperties(&prop, i));
         printf("Device: %d, name: %s, asyncEngineCount:%d\n", i, prop.name, prop.asyncEngineCount);
         printf("streamPrioritiesSupported: %s\n", prop.streamPrioritiesSupported ? "Yes" : "No");
+
+        if (prop.streamPrioritiesSupported)
+        {
+            int leastPriority, greatestPriority;
+            CHECK(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
+            printf("stream priority：[%d, %d]\n", greatestPriority, leastPriority);
+        }
     }
 
     return 0;
