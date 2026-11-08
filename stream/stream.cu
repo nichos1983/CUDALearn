@@ -158,7 +158,7 @@ void initArray(float *array, unsigned int num)
     }
 }
 
-int testMultiAddStream()
+int testMultiAddStream(bool useNonBlocking)
 {
     printf("=== testMultiAddStream start. ===\n");
 
@@ -232,7 +232,14 @@ int testMultiAddStream()
     
     for (int i = 0; i < TEST_MULTI_ADD_STREAM_NUM; i++)
     {
-        CHECK(cudaStreamCreate(&stream[i]));
+        if (useNonBlocking)
+        {
+            CHECK(cudaStreamCreateWithFlags(&stream[i], cudaStreamNonBlocking));
+        }
+        else
+        {
+            CHECK(cudaStreamCreate(&stream[i]));
+        }
     }
 
     CHECK(cudaEventRecord(start, 0));
@@ -299,7 +306,14 @@ int main(int argc, char *argv[])
     // testBasicStream();
     // testMultiStream(useMultiStream);
 
-    testMultiAddStream();
+    bool useNonBlocking = false;
+    if (argc > 1 && std::string(argv[1]) == "nonblocking")
+    {
+        useNonBlocking = true;
+    }
+    printf("main: useNonBlocking: %d\n", useNonBlocking);
+
+    testMultiAddStream(useNonBlocking);
 
     return 0;
 }
