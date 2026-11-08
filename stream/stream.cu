@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include "../common/common.h"
 
 #define TEST_BASIC_REPEAT_COUNT 10000
 
@@ -10,17 +11,6 @@
 #define TEST_NUM_KERNELS 64
 #define TEST_NUM_STREAMS 12
 #define TEST_REPEAT_COUNT 100000
-
-#define CHECK(x)                                                                                    \
-    do                                                                                              \
-    {                                                                                               \
-        cudaError_t e_ = (x);                                                                       \
-        if (e_ != cudaSuccess)                                                                      \
-        {                                                                                           \
-            fprintf(stderr, "CUDA error %s: %d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e_)); \
-            exit(1);                                                                                \
-        }                                                                                           \
-    } while (0)
 
 int printBasicInfo()
 {

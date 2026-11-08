@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "../common/common.h"
 
 #define SHARED_BLOCK_DIM_X 32
 #define SHARED_BLOCK_DIM_Y 16
@@ -9,17 +10,6 @@
 #define PADDING_2 2
 
 #define BLOCK_SIZE 128
-
-#define CHECK(x)                                                                                    \
-    do                                                                                              \
-    {                                                                                               \
-        cudaError_t e_ = (x);                                                                       \
-        if (e_ != cudaSuccess)                                                                      \
-        {                                                                                           \
-            fprintf(stderr, "CUDA error %s: %d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e_)); \
-            exit(1);                                                                                \
-        }                                                                                           \
-    } while (0)
 
 __global__ void setRowReadRow(int *out)
 {

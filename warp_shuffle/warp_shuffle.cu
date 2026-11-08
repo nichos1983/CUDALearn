@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "../common/common.h"
 
 #define MASK_ALL_32 0xFFFFFFFF
 
@@ -27,17 +28,6 @@
 #define REDUCE_TOTAL_SIZE (REDUCE_NUMBER_OF_GRID * REDUCE_GRID_SIZE * REDUCE_BLOCK_SIZE)
 
 // #define DEBUG_REDUCE_PRINT
-
-#define CHECK(x)                                                                                    \
-    do                                                                                              \
-    {                                                                                               \
-        cudaError_t e_ = (x);                                                                       \
-        if (e_ != cudaSuccess)                                                                      \
-        {                                                                                           \
-            fprintf(stderr, "CUDA error %s: %d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e_)); \
-            exit(1);                                                                                \
-        }                                                                                           \
-    } while (0)
 
 __global__ void shuffleBroadcat(int *out, int *in, int const srcLane, int width)
 {

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "../common/common.h"
 
 #define TEST_KERNEL_VERSION 1
 
@@ -8,17 +9,6 @@
 #define BLOCK_SIZE 128
 #define WARM_UP_COUNT 5
 #define TEST_KERNEL_COUNT 20
-
-#define CHECK(x)                                                                                    \
-    do                                                                                              \
-    {                                                                                               \
-        cudaError_t e_ = (x);                                                                       \
-        if (e_ != cudaSuccess)                                                                      \
-        {                                                                                           \
-            fprintf(stderr, "CUDA error %s: %d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e_)); \
-            exit(1);                                                                                \
-        }                                                                                           \
-    } while (0)
 
 template <class K>
 static int persistentGrid(K k, int sms, int n)
