@@ -256,7 +256,8 @@ int testMultiAddStream(bool useNonBlocking)
         CHECK(cudaMemcpyAsync(&h_c[ioffset], &d_c[ioffset], bytesPerStream,
                               cudaMemcpyDeviceToHost, stream[i]));
     }
-
+    
+    CHECK(cudaDeviceSynchronize());
     CHECK(cudaEventRecord(stop, 0));
     CHECK(cudaEventSynchronize(stop));
 
