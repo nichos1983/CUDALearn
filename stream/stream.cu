@@ -257,6 +257,8 @@ int testMultiAddStream(bool useNonBlocking)
                               cudaMemcpyDeviceToHost, stream[i]));
     }
     
+    // Add call cudaDeviceSynchronize() comparing to original code on book.
+    // Otherwise, the stop event triggers when the 1st stream ends...
     CHECK(cudaDeviceSynchronize());
     CHECK(cudaEventRecord(stop, 0));
     CHECK(cudaEventSynchronize(stop));
