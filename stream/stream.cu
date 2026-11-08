@@ -13,8 +13,8 @@
 #define TEST_REPEAT_COUNT 100000
 
 #define TEST_MULTI_ADD_MAX_INIT_VALUE 65536
-#define TEST_MULTI_ADD_REPEAT_COUNT 10000
-#define TEST_MULTI_ADD_NUM_ELEMENTS (1 << 20)
+#define TEST_MULTI_ADD_REPEAT_COUNT 128
+#define TEST_MULTI_ADD_NUM_ELEMENTS (1 << 24)
 #define TEST_MULTI_ADD_BLOCK_DIM_X 128
 #define TEST_MULTI_ADD_STREAM_NUM 4
 
@@ -141,7 +141,7 @@ __global__ void sumArrays(const float *a, const float *b, float *c, const int nu
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (idx < N)
+    if (idx < num)
     {
         for (int i = 0; i < TEST_MULTI_ADD_REPEAT_COUNT; i++)
         {
@@ -214,9 +214,9 @@ int testMultiAddStream()
     float sequentialTotal = kernelTime + memcpyH2DTime + memcpyD2HTime;
 
     printf("\nMeasured timings (throughput):\n");
-    printf(" Memcpy H2D\t: %f ms (%f GB/s)\n",
+    printf(" Memcpy H2D\t\t: %f ms (%f GB/s)\n",
            memcpyH2DTime, (bytes * 1e-6) / memcpyH2DTime);
-    printf(" Memcpy device to host\t: %f ms (%f GB/s)\n",
+    printf(" Memcpy D2H\t\t: %f ms (%f GB/s)\n",
            memcpyD2HTime, (bytes * 1e-6) / memcpyD2HTime);
     printf(" Kernel\t\t\t: %f ms (%f GB/s)\n",
            kernelTime, (bytes * 2e-6) / kernelTime);
@@ -257,9 +257,9 @@ int testMultiAddStream()
     CHECK(cudaEventElapsedTime(&executionTime, start, stop));
 
     printf("\nActual results from overlapped data transfers:\n");
-    printf(" overlap with %d streams: %f ms (%f GB/s)\n", TEST_MULTI_ADD_STREAM_NUM,
+    printf(" overlap with %d streams : %f ms (%f GB/s)\n", TEST_MULTI_ADD_STREAM_NUM,
            executionTime, (bytes * 2e-6) / executionTime );
-    printf(" speedup: %f \n",
+    printf(" speedup\t\t: %f%% \n",
            ((sequentialTotal - executionTime) * 100.0f) / sequentialTotal);
 
     CHECK(cudaGetLastError());
