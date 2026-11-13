@@ -1,1 +1,3 @@
 **/debug/
+.clangd
+.clangd_cuda_stub.h
