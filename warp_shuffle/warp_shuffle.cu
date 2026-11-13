@@ -1,6 +1,6 @@
+#include "../common/common.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "../common/common.h"
 
 #define MASK_ALL_32 0xFFFFFFFF
 
@@ -25,36 +25,34 @@
 #define REDUCE_GRID_SIZE 32
 #define REDUCE_BLOCK_SIZE (32 * 4)
 #define REDUCE_NUMBER_OF_GRID 6
-#define REDUCE_TOTAL_SIZE (REDUCE_NUMBER_OF_GRID * REDUCE_GRID_SIZE * REDUCE_BLOCK_SIZE)
+#define REDUCE_TOTAL_SIZE                                                      \
+    (REDUCE_NUMBER_OF_GRID * REDUCE_GRID_SIZE * REDUCE_BLOCK_SIZE)
 
 // #define DEBUG_REDUCE_PRINT
 
-__global__ void shuffleBroadcat(int *out, int *in, int const srcLane, int width)
-{
+__global__ void shuffleBroadcat(int *out, int *in, int const srcLane,
+                                int width) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int value = in[idx];
     value = __shfl_sync(MASK_ALL_32, value, srcLane, width);
     out[idx] = value;
 }
 
-__global__ void shuffleUp(int *out, int *in, int const delta, int width)
-{
+__global__ void shuffleUp(int *out, int *in, int const delta, int width) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int value = in[idx];
     value = __shfl_up_sync(MASK_ALL_32, value, delta, width);
     out[idx] = value;
 }
 
-__global__ void shuffleDown(int *out, int *in, int const delta, int width)
-{
+__global__ void shuffleDown(int *out, int *in, int const delta, int width) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int value = in[idx];
     value = __shfl_down_sync(MASK_ALL_32, value, delta, width);
     out[idx] = value;
 }
 
-__global__ void shuffleWrap(int *out, int *in, int const offset, int width)
-{
+__global__ void shuffleWrap(int *out, int *in, int const offset, int width) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int warpIdx = threadIdx.x % warpSize;
     int value = in[idx];
@@ -62,36 +60,30 @@ __global__ void shuffleWrap(int *out, int *in, int const offset, int width)
     out[idx] = value;
 }
 
-__global__ void shuffleXor(int *out, int *in, int const mask, int width)
-{
+__global__ void shuffleXor(int *out, int *in, int const mask, int width) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int value = in[idx];
     value = __shfl_xor_sync(MASK_ALL_32, value, mask, width);
     out[idx] = value;
 }
 
-template <typename T>
-__device__ __forceinline__ T warpReduceSum(T val)
-{
-    #pragma unroll
-    for (int offset = (warpSize >> 1); offset > 0; offset >>= 1)
-    {
+template <typename T> __device__ __forceinline__ T warpReduceSum(T val) {
+#pragma unroll
+    for (int offset = (warpSize >> 1); offset > 0; offset >>= 1) {
         val += __shfl_xor_sync(MASK_ALL_32, val, offset);
         // val += __shfl_down_sync(MASK_ALL_32, val, offset);
     }
 
 #ifdef DEBUG_REDUCE_PRINT
-    if (blockIdx.x == 0)
-    {
-        printf("warpReduceSum, threadIdx.x: %d, val: %d\n", threadIdx.x, (int)val);
+    if (blockIdx.x == 0) {
+        printf("warpReduceSum, threadIdx.x: %d, val: %d\n", threadIdx.x,
+               (int)val);
     }
 #endif
     return val;
 }
 
-template <typename T>
-__device__ inline T blockReduceSum(T val)
-{
+template <typename T> __device__ inline T blockReduceSum(T val) {
     static __shared__ T shared[REDUCE_SHARED_MEM_SIZE];
 
     const int laneIdx = threadIdx.x % warpSize;
@@ -100,15 +92,13 @@ __device__ inline T blockReduceSum(T val)
     val = warpReduceSum(val);
     __syncthreads();
 
-    if (laneIdx == 0)
-    {
+    if (laneIdx == 0) {
         shared[warpIdx] = val;
     }
     __syncthreads();
 
     val = (threadIdx.x < blockDim.x / warpSize) ? shared[laneIdx] : T(0);
-    if (warpIdx == 0)
-    {
+    if (warpIdx == 0) {
         val = warpReduceSum(val);
     }
 
@@ -116,73 +106,62 @@ __device__ inline T blockReduceSum(T val)
 }
 
 template <typename T>
-__global__ void deviceReduceSum(T *input, T *output, unsigned int num)
-{
+__global__ void deviceReduceSum(T *input, T *output, unsigned int num) {
     T sum = T(0);
 
 #ifdef DEBUG_REDUCE_PRINT
     bool check = false;
     int checkNum = 0;
-    if (threadIdx.x == 0 && blockIdx.x == 0)
-    {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
         check = true;
-        printf("deviceReduceSum start, gridDim.x:%d, blockDim.x:%d, num:%d\n", gridDim.x, blockDim.x, num);
+        printf("deviceReduceSum start, gridDim.x:%d, blockDim.x:%d, num:%d\n",
+               gridDim.x, blockDim.x, num);
     }
 #endif
 
-    for (int idx = blockIdx.x * blockDim.x + threadIdx.x;
-        idx < num;
-        idx += blockDim.x * gridDim.x)
-    {
+    for (int idx = blockIdx.x * blockDim.x + threadIdx.x; idx < num;
+         idx += blockDim.x * gridDim.x) {
         sum += input[idx];
 
 #ifdef DEBUG_REDUCE_PRINT
-        if (check)
-        {
+        if (check) {
             checkNum++;
         }
 #endif
     }
 
 #ifdef DEBUG_REDUCE_PRINT
-    if (threadIdx.x == 0 && blockIdx.x == 0)
-    {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
         printf("deviceReduceSum end, checkNum:%d\n", checkNum);
     }
 #endif
 
     sum = blockReduceSum(sum);
-    
-    if (threadIdx.x == 0)
-    {
+
+    if (threadIdx.x == 0) {
         output[blockIdx.x] = sum;
     }
 }
 
-void printResult(int *out, unsigned int count)
-{
+void printResult(int *out, unsigned int count) {
     printf("* result start: *\n");
-    for (int i = 0; i < count; i++)
-    {
+    for (int i = 0; i < count; i++) {
         printf("%d ", out[i]);
     }
     printf("\n* result end *\n");
 }
 
-int runBasicTests()
-{
+int runBasicTests() {
     const size_t bytes = (size_t)TOTAL_SIZE * sizeof(int);
 
     int *h_in = (int *)malloc(bytes);
     int *h_out = (int *)malloc(bytes);
-    if (!h_in || !h_out)
-    {
+    if (!h_in || !h_out) {
         fprintf(stderr, "Not enough memory\n");
         return 1;
     }
 
-    for (int i = 0; i < TOTAL_SIZE; i++)
-    {
+    for (int i = 0; i < TOTAL_SIZE; i++) {
         h_in[i] = i % BLOCK_SIZE;
     }
 
@@ -195,28 +174,33 @@ int runBasicTests()
 
     int testWidth = TEST_WIDTH_32;
     printf("=== shuffleBroadcat width:%d ===\n", testWidth);
-    shuffleBroadcat<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, TEST_SOURCE_LANE, testWidth);
+    shuffleBroadcat<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, TEST_SOURCE_LANE,
+                                               testWidth);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out, TOTAL_SIZE);
 
     testWidth = TEST_WIDTH_16;
     printf("=== shuffleBroadcat width:%d ===\n", testWidth);
-    shuffleBroadcat<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, TEST_SOURCE_LANE, testWidth);
+    shuffleBroadcat<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, TEST_SOURCE_LANE,
+                                               testWidth);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out, TOTAL_SIZE);
 
     printf("=== shuffleUp width:%d ===\n", testWidth);
-    shuffleUp<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, TEST_LANE_DELTA, testWidth);
+    shuffleUp<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, TEST_LANE_DELTA,
+                                         testWidth);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out, TOTAL_SIZE);
 
     printf("=== shuffleDown width:%d ===\n", testWidth);
-    shuffleDown<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, TEST_LANE_DELTA, testWidth);
+    shuffleDown<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, TEST_LANE_DELTA,
+                                           testWidth);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out, TOTAL_SIZE);
 
     printf("=== shuffleWrap width:%d ===\n", testWidth);
-    shuffleWrap<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, TEST_LANE_OFFSET, testWidth);
+    shuffleWrap<<<GRID_SIZE, BLOCK_SIZE>>>(d_out, d_in, TEST_LANE_OFFSET,
+                                           testWidth);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out, TOTAL_SIZE);
 
@@ -246,20 +230,17 @@ int runBasicTests()
     return 0;
 }
 
-int runReduceTests()
-{
+int runReduceTests() {
     const size_t bytes = (size_t)REDUCE_TOTAL_SIZE * sizeof(int);
 
     int *h_in = (int *)malloc(bytes);
     int *h_out = (int *)malloc(bytes);
-    if (!h_in || !h_out)
-    {
+    if (!h_in || !h_out) {
         fprintf(stderr, "Not enough memory\n");
         return 1;
     }
 
-    for (int i = 0; i < REDUCE_TOTAL_SIZE; i++)
-    {
+    for (int i = 0; i < REDUCE_TOTAL_SIZE; i++) {
         h_in[i] = i % BLOCK_SIZE;
     }
 
@@ -271,7 +252,8 @@ int runReduceTests()
     cudaMemcpy(d_in, h_in, bytes, cudaMemcpyHostToDevice);
 
     printf("=== deviceReduceSum ===\n");
-    deviceReduceSum<<<REDUCE_GRID_SIZE, REDUCE_BLOCK_SIZE>>>(d_in, d_out, REDUCE_TOTAL_SIZE);
+    deviceReduceSum<<<REDUCE_GRID_SIZE, REDUCE_BLOCK_SIZE>>>(d_in, d_out,
+                                                             REDUCE_TOTAL_SIZE);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out, REDUCE_GRID_SIZE);
 
@@ -283,8 +265,7 @@ int runReduceTests()
     return 0;
 }
 
-int main()
-{
+int main() {
     runBasicTests();
     runReduceTests();
     return 0;

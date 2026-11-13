@@ -1,6 +1,6 @@
+#include "../common/common.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "../common/common.h"
 
 #define SHARED_BLOCK_DIM_X 32
 #define SHARED_BLOCK_DIM_Y 16
@@ -11,62 +11,58 @@
 
 #define BLOCK_SIZE 128
 
-__global__ void setRowReadRow(int *out)
-{
+__global__ void setRowReadRow(int *out) {
     __shared__ int tile[SHARED_BLOCK_DIM_Y][SHARED_BLOCK_DIM_X];
 
-    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y +
+                             threadIdx.y * blockDim.x + threadIdx.x;
 
-    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
-    {
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++) {
         tile[threadIdx.y][threadIdx.x] = globalIdx;
         __syncthreads();
         out[globalIdx] = tile[threadIdx.y][threadIdx.x];
     }
 }
 
-__global__ void setColReadCol(int *out)
-{
+__global__ void setColReadCol(int *out) {
     __shared__ int tile[SHARED_BLOCK_DIM_X][SHARED_BLOCK_DIM_Y];
 
-    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
-    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
-    {
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y +
+                             threadIdx.y * blockDim.x + threadIdx.x;
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++) {
         tile[threadIdx.x][threadIdx.y] = globalIdx;
         __syncthreads();
         out[globalIdx] = tile[threadIdx.x][threadIdx.y];
     }
 }
 
-__global__ void setRowReadCol(int *out)
-{
+__global__ void setRowReadCol(int *out) {
     __shared__ int tile[SHARED_BLOCK_DIM_Y][SHARED_BLOCK_DIM_X];
 
-    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y +
+                             threadIdx.y * blockDim.x + threadIdx.x;
     unsigned int localIdx = threadIdx.y * blockDim.x + threadIdx.x;
     unsigned int transRow = localIdx / blockDim.y;
     unsigned int transCol = localIdx % blockDim.y;
-    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
-    {
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++) {
         tile[threadIdx.y][threadIdx.x] = globalIdx;
         __syncthreads();
         out[globalIdx] = tile[transCol][transRow];
     }
 }
 
-__global__ void setRowReadColDynamic(int *out)
-{
+__global__ void setRowReadColDynamic(int *out) {
     extern __shared__ int tile[];
 
-    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y +
+                             threadIdx.y * blockDim.x + threadIdx.x;
     unsigned int localIdx = threadIdx.y * blockDim.x + threadIdx.x;
     unsigned int transRow = localIdx / blockDim.y;
     unsigned int transCol = localIdx % blockDim.y;
-    
+
     unsigned int transLocalIdx = transCol * blockDim.x + transRow;
 
-    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
-    {
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++) {
         tile[localIdx] = globalIdx;
         __syncthreads();
         out[globalIdx] = tile[transLocalIdx];
@@ -76,17 +72,15 @@ __global__ void setRowReadColDynamic(int *out)
 // Note:
 // When PADDING_NUM = 1, there is 2.0 - way bank conflict.
 // When PADDING_NUM = 2, there is no bank conflict.
-template<int PADDING_NUM>
-__global__ void setRowReadColPad(int *out)
-{
+template <int PADDING_NUM> __global__ void setRowReadColPad(int *out) {
     __shared__ int tile[SHARED_BLOCK_DIM_Y][SHARED_BLOCK_DIM_X + PADDING_NUM];
 
-    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y +
+                             threadIdx.y * blockDim.x + threadIdx.x;
     unsigned int localIdx = threadIdx.y * blockDim.x + threadIdx.x;
     unsigned int transRow = localIdx / blockDim.y;
     unsigned int transCol = localIdx % blockDim.y;
-    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
-    {
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++) {
         tile[threadIdx.y][threadIdx.x] = globalIdx;
         __syncthreads();
         out[globalIdx] = tile[transCol][transRow];
@@ -97,36 +91,33 @@ __global__ void setRowReadColPad(int *out)
 // The same as setRowReadColPad.
 // When PADDING_NUM = 1, there is 2.0 - way bank conflict.
 // When PADDING_NUM = 2, there is no bank conflict.
-template<int PADDING_NUM>
-__global__ void setRowReadColDynamicPad(int *out)
-{
+template <int PADDING_NUM> __global__ void setRowReadColDynamicPad(int *out) {
     extern __shared__ int tile[];
 
-    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned int globalIdx = blockIdx.x * blockDim.x * blockDim.y +
+                             threadIdx.y * blockDim.x + threadIdx.x;
     unsigned int localIdx = threadIdx.y * blockDim.x + threadIdx.x;
     unsigned int transRow = localIdx / blockDim.y;
     unsigned int transCol = localIdx % blockDim.y;
 
-    unsigned int localPadIdx = threadIdx.y * (blockDim.x + PADDING_NUM) + threadIdx.x;
-    unsigned int transLocalPadIdx = transCol * (blockDim.x + PADDING_NUM) + transRow;
+    unsigned int localPadIdx =
+        threadIdx.y * (blockDim.x + PADDING_NUM) + threadIdx.x;
+    unsigned int transLocalPadIdx =
+        transCol * (blockDim.x + PADDING_NUM) + transRow;
 
-    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++)
-    {
+    for (int i = 0; i < LOAD_STORE_ITER_COUNT; i++) {
         tile[localPadIdx] = globalIdx;
         __syncthreads();
         out[globalIdx] = tile[transLocalPadIdx];
     }
 }
 
-void printResult(int *out)
-{
+void printResult(int *out) {
     printf("* result start: *\n");
-    for (int k = 0; k < 2; k++)
-    {
+    for (int k = 0; k < 2; k++) {
         printf("--- loop %d ---\n", k);
         int offset = k * SHARED_BLOCK_DIM_X * SHARED_BLOCK_DIM_Y;
-        for (int i = 0; i < SHARED_BLOCK_DIM_X * 4; i++)
-        {
+        for (int i = 0; i < SHARED_BLOCK_DIM_X * 4; i++) {
             printf("%d ", out[offset + i]);
         }
         printf("\n");
@@ -134,13 +125,12 @@ void printResult(int *out)
     printf("\n* result end *\n");
 }
 
-int runTest()
-{
-    const size_t bytes = (size_t)SHARED_BLOCK_COUNT * SHARED_BLOCK_DIM_X * SHARED_BLOCK_DIM_Y * sizeof(int);
+int runTest() {
+    const size_t bytes = (size_t)SHARED_BLOCK_COUNT * SHARED_BLOCK_DIM_X *
+                         SHARED_BLOCK_DIM_Y * sizeof(int);
 
     int *h_out = (int *)malloc(bytes);
-    if (!h_out)
-    {
+    if (!h_out) {
         fprintf(stderr, "Not enough memory\n");
         return 1;
     }
@@ -171,7 +161,8 @@ int runTest()
     printResult(h_out);
 
     printf("=== setRowReadColDynamic ===\n");
-    unsigned int dynamicBytes = SHARED_BLOCK_DIM_X * SHARED_BLOCK_DIM_Y * sizeof(int);
+    unsigned int dynamicBytes =
+        SHARED_BLOCK_DIM_X * SHARED_BLOCK_DIM_Y * sizeof(int);
     setRowReadColDynamic<<<SHARED_BLOCK_COUNT, blockDim, dynamicBytes>>>(d_out);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out);
@@ -187,14 +178,18 @@ int runTest()
     printResult(h_out);
 
     printf("=== setRowReadColDynamicPad pad 1 ===\n");
-    unsigned int dynamicPadBytes1 = (SHARED_BLOCK_DIM_X + PADDING_1) * SHARED_BLOCK_DIM_Y * sizeof(int);
-    setRowReadColDynamicPad<PADDING_1><<<SHARED_BLOCK_COUNT, blockDim, dynamicPadBytes1>>>(d_out);
+    unsigned int dynamicPadBytes1 =
+        (SHARED_BLOCK_DIM_X + PADDING_1) * SHARED_BLOCK_DIM_Y * sizeof(int);
+    setRowReadColDynamicPad<PADDING_1>
+        <<<SHARED_BLOCK_COUNT, blockDim, dynamicPadBytes1>>>(d_out);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out);
 
     printf("=== setRowReadColDynamicPad pad 2 ===\n");
-    unsigned int dynamicPadBytes2 = (SHARED_BLOCK_DIM_X + PADDING_2) * SHARED_BLOCK_DIM_Y * sizeof(int);
-    setRowReadColDynamicPad<PADDING_2><<<SHARED_BLOCK_COUNT, blockDim, dynamicPadBytes2>>>(d_out);
+    unsigned int dynamicPadBytes2 =
+        (SHARED_BLOCK_DIM_X + PADDING_2) * SHARED_BLOCK_DIM_Y * sizeof(int);
+    setRowReadColDynamicPad<PADDING_2>
+        <<<SHARED_BLOCK_COUNT, blockDim, dynamicPadBytes2>>>(d_out);
     cudaMemcpy(h_out, d_out, bytes, cudaMemcpyDeviceToHost);
     printResult(h_out);
 
@@ -204,8 +199,7 @@ int runTest()
     return 0;
 }
 
-int main()
-{
+int main() {
     runTest();
     return 0;
 }
