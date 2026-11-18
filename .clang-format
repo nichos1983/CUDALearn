@@ -1,4 +1,36 @@
-BasedOnStyle: LLVM
+# 0. Based on Google C++ Style Guide
+BasedOnStyle: Google
+
+# 1. 核心排版：4 空格缩进 + 100 字符宽（兼顾 CUDA 修饰符长度与分屏可读性）
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
+ColumnLimit: 100
+
+# 2. 大括号风格：紧跟同行（Attach），节省纵向屏幕空间
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# 3. 指针与引用对齐：靠左贴紧类型（如 const float* __restrict__ ptr）
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# 4. CUDA 模板与长函数声明优化（防止 template<...> 挤在同一行导致极度难读）
+BreakTemplateDeclarations: Yes
+BinPackParameters: BinPack
+BinPackArguments: true
+
+# 5. 命名空间与访问修饰符（避免 namespace cuda_utils {} 内部整体缩进浪费宽度）
+NamespaceIndentation: None
+AccessModifierOffset: -4
+
+# 6. 头文件排序：保持原有引入顺序（防止 CUDA 头文件如 cuda_runtime.h 与自定义 .cuh 顺序被打乱引发宏冲突）
+# SortIncludes: Never
+SortIncludes:
+  Enabled: true
+
+# 7. 注释与空行控制
+ReflowComments: Always
+MaxEmptyLinesToKeep: 1

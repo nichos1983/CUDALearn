@@ -1,7 +1,9 @@
-#include "../common/common.h"
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <string>
+
+#include "../common/common.cuh"
 
 #define TEST_BASIC_REPEAT_COUNT 10000
 
@@ -25,24 +27,20 @@ int printBasicInfo() {
     for (int i = 0; i < deviceCount; i++) {
         cudaDeviceProp prop;
         CHECK(cudaGetDeviceProperties(&prop, i));
-        printf("Device: %d, name: %s, asyncEngineCount:%d\n", i, prop.name,
-               prop.asyncEngineCount);
-        printf("streamPrioritiesSupported: %s\n",
-               prop.streamPrioritiesSupported ? "Yes" : "No");
+        printf("Device: %d, name: %s, asyncEngineCount:%d\n", i, prop.name, prop.asyncEngineCount);
+        printf("streamPrioritiesSupported: %s\n", prop.streamPrioritiesSupported ? "Yes" : "No");
 
         if (prop.streamPrioritiesSupported) {
             int leastPriority, greatestPriority;
-            CHECK(cudaDeviceGetStreamPriorityRange(&leastPriority,
-                                                   &greatestPriority));
-            printf("stream priority：[%d, %d]\n", greatestPriority,
-                   leastPriority);
+            CHECK(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
+            printf("stream priority：[%d, %d]\n", greatestPriority, leastPriority);
         }
     }
 
     return 0;
 }
 
-__global__ void workKernel(float *data, int repeat) {
+__global__ void workKernel(float* data, int repeat) {
     // printf("Device: workKernel called.\n");
 
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -60,7 +58,7 @@ __global__ void workKernel(float *data, int repeat) {
 int testBasicStream() {
     printf("=== testBasicStream start. ===\n");
 
-    float *d_data;
+    float* d_data;
     CHECK(cudaMalloc(&d_data, sizeof(float)));
 
     cudaStream_t myStream;
@@ -87,14 +85,13 @@ int testBasicStream() {
 int testMultiStream(bool useMultiStream) {
     printf("=== testMultiStream start. ===\n");
 
-    float *d_data;
+    float* d_data;
     CHECK(cudaMalloc(&d_data, sizeof(float)));
 
     if (!useMultiStream) {
         printf("Default stream mode.\n");
         for (int i = 0; i < TEST_NUM_KERNELS; i++) {
-            workKernel<<<TEST_GRID_DIM_X, TEST_BLOCK_DIM_X, 0, 0>>>(
-                d_data, TEST_REPEAT_COUNT);
+            workKernel<<<TEST_GRID_DIM_X, TEST_BLOCK_DIM_X, 0, 0>>>(d_data, TEST_REPEAT_COUNT);
         }
     } else {
         printf("Multi stream mode.\n");
@@ -108,9 +105,8 @@ int testMultiStream(bool useMultiStream) {
         printf("created streams.\n");
 
         for (int i = 0; i < TEST_NUM_KERNELS; i++) {
-            workKernel<<<TEST_GRID_DIM_X, TEST_BLOCK_DIM_X, 0,
-                         streams[i % TEST_NUM_STREAMS]>>>(d_data,
-                                                          TEST_REPEAT_COUNT);
+            workKernel<<<TEST_GRID_DIM_X, TEST_BLOCK_DIM_X, 0, streams[i % TEST_NUM_STREAMS]>>>(
+                d_data, TEST_REPEAT_COUNT);
         }
 
         printf("launched kernels.\n");
@@ -132,8 +128,7 @@ int testMultiStream(bool useMultiStream) {
     return 0;
 }
 
-__global__ void sumArrays(const float *a, const float *b, float *c,
-                          const int num) {
+__global__ void sumArrays(const float* a, const float* b, float* c, const int num) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx < num) {
@@ -143,7 +138,7 @@ __global__ void sumArrays(const float *a, const float *b, float *c,
     }
 }
 
-void initArray(float *array, unsigned int num) {
+void initArray(float* array, unsigned int num) {
     for (int i = 0; i < num; i++) {
         array[i] = (float)(i % TEST_MULTI_ADD_MAX_INIT_VALUE);
     }
@@ -156,17 +151,17 @@ int testMultiAddStream(bool useNonBlocking) {
     int bytes = elementCount * sizeof(float);
 
     float *h_a, *h_b, *h_c;
-    CHECK(cudaHostAlloc((void **)&h_a, bytes, cudaHostAllocDefault));
-    CHECK(cudaHostAlloc((void **)&h_b, bytes, cudaHostAllocDefault));
-    CHECK(cudaHostAlloc((void **)&h_c, bytes, cudaHostAllocDefault));
+    CHECK(cudaHostAlloc((void**)&h_a, bytes, cudaHostAllocDefault));
+    CHECK(cudaHostAlloc((void**)&h_b, bytes, cudaHostAllocDefault));
+    CHECK(cudaHostAlloc((void**)&h_c, bytes, cudaHostAllocDefault));
 
     initArray(h_a, elementCount);
     initArray(h_b, elementCount);
 
     float *d_a, *d_b, *d_c;
-    CHECK(cudaMalloc((float **)&d_a, bytes));
-    CHECK(cudaMalloc((float **)&d_b, bytes));
-    CHECK(cudaMalloc((float **)&d_c, bytes));
+    CHECK(cudaMalloc((float**)&d_a, bytes));
+    CHECK(cudaMalloc((float**)&d_b, bytes));
+    CHECK(cudaMalloc((float**)&d_c, bytes));
 
     cudaEvent_t start, stop;
     CHECK(cudaEventCreate(&start));
@@ -174,8 +169,7 @@ int testMultiAddStream(bool useNonBlocking) {
 
     dim3 block(TEST_MULTI_ADD_BLOCK_DIM_X);
     dim3 grid((elementCount - block.x + 1) / block.x);
-    printf("grid: (%d, %d) block: (%d, %d)\n", grid.x, grid.y, block.x,
-           block.y);
+    printf("grid: (%d, %d) block: (%d, %d)\n", grid.x, grid.y, block.x, block.y);
 
     // sequential test
     CHECK(cudaEventRecord(start, 0));
@@ -205,14 +199,10 @@ int testMultiAddStream(bool useNonBlocking) {
     float sequentialTotal = kernelTime + memcpyH2DTime + memcpyD2HTime;
 
     printf("\nMeasured timings (throughput):\n");
-    printf(" Memcpy H2D\t\t: %f ms (%f GB/s)\n", memcpyH2DTime,
-           (bytes * 1e-6) / memcpyH2DTime);
-    printf(" Memcpy D2H\t\t: %f ms (%f GB/s)\n", memcpyD2HTime,
-           (bytes * 1e-6) / memcpyD2HTime);
-    printf(" Kernel\t\t\t: %f ms (%f GB/s)\n", kernelTime,
-           (bytes * 2e-6) / kernelTime);
-    printf(" Total\t\t\t: %f ms (%f GB/s)\n", sequentialTotal,
-           (bytes * 2e-6) / sequentialTotal);
+    printf(" Memcpy H2D\t\t: %f ms (%f GB/s)\n", memcpyH2DTime, (bytes * 1e-6) / memcpyH2DTime);
+    printf(" Memcpy D2H\t\t: %f ms (%f GB/s)\n", memcpyD2HTime, (bytes * 1e-6) / memcpyD2HTime);
+    printf(" Kernel\t\t\t: %f ms (%f GB/s)\n", kernelTime, (bytes * 2e-6) / kernelTime);
+    printf(" Total\t\t\t: %f ms (%f GB/s)\n", sequentialTotal, (bytes * 2e-6) / sequentialTotal);
 
     // parallel test
     int elementCountPerStream = elementCount / TEST_MULTI_ADD_STREAM_NUM;
@@ -233,14 +223,14 @@ int testMultiAddStream(bool useNonBlocking) {
 
     for (int i = 0; i < TEST_MULTI_ADD_STREAM_NUM; i++) {
         int ioffset = i * elementCountPerStream;
-        CHECK(cudaMemcpyAsync(&d_a[ioffset], &h_a[ioffset], bytesPerStream,
-                              cudaMemcpyHostToDevice, stream[i]));
-        CHECK(cudaMemcpyAsync(&d_b[ioffset], &h_b[ioffset], bytesPerStream,
-                              cudaMemcpyHostToDevice, stream[i]));
-        sumArrays<<<grid, block, 0, stream[i]>>>(&d_a[ioffset], &d_b[ioffset],
-                                                 &d_c[ioffset], bytesPerStream);
-        CHECK(cudaMemcpyAsync(&h_c[ioffset], &d_c[ioffset], bytesPerStream,
-                              cudaMemcpyDeviceToHost, stream[i]));
+        CHECK(cudaMemcpyAsync(&d_a[ioffset], &h_a[ioffset], bytesPerStream, cudaMemcpyHostToDevice,
+                              stream[i]));
+        CHECK(cudaMemcpyAsync(&d_b[ioffset], &h_b[ioffset], bytesPerStream, cudaMemcpyHostToDevice,
+                              stream[i]));
+        sumArrays<<<grid, block, 0, stream[i]>>>(&d_a[ioffset], &d_b[ioffset], &d_c[ioffset],
+                                                 bytesPerStream);
+        CHECK(cudaMemcpyAsync(&h_c[ioffset], &d_c[ioffset], bytesPerStream, cudaMemcpyDeviceToHost,
+                              stream[i]));
     }
 
     // Add call cudaDeviceSynchronize() comparing to original code on book.
@@ -253,11 +243,9 @@ int testMultiAddStream(bool useNonBlocking) {
     CHECK(cudaEventElapsedTime(&executionTime, start, stop));
 
     printf("\nActual results from overlapped data transfers:\n");
-    printf(" overlap with %d streams : %f ms (%f GB/s)\n",
-           TEST_MULTI_ADD_STREAM_NUM, executionTime,
+    printf(" overlap with %d streams : %f ms (%f GB/s)\n", TEST_MULTI_ADD_STREAM_NUM, executionTime,
            (bytes * 2e-6) / executionTime);
-    printf(" speedup\t\t: %f%% \n",
-           ((sequentialTotal - executionTime) * 100.0f) / sequentialTotal);
+    printf(" speedup\t\t: %f%% \n", ((sequentialTotal - executionTime) * 100.0f) / sequentialTotal);
 
     CHECK(cudaGetLastError());
 
@@ -282,7 +270,7 @@ int testMultiAddStream(bool useNonBlocking) {
     return 0;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     // bool useMultiStream = false;
     // if (argc > 1 && std::string(argv[1]) == "multi")
     // {
