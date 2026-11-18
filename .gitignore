@@ -1,3 +1,32 @@
+# Compiled files
 **/debug/
+
+# Clang config file
 .clangd
-.clangd_cuda_stub.h
+
+# Build files
+build/
+
+# IDE
+# .vscode/*
+# .idea/
+
+# Compiled files
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.exe
+
+# CUDA compiled files
+*.cubin
+*.ptx
+*.fatbin
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

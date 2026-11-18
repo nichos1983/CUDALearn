@@ -1,0 +1,21 @@
+# 该文件根据无 NVIDIA 显卡的本地开发环境编写（如 macOS/Windows 纯代码阅读与编写）
+# 若有 NVIDIA 显卡，可自行新建文件配置
+# 使用方法：复制本文件为.clangd（已加入 .gitignore），修改下方路径为你的本地真实路径
+CompileFlags:
+  Add:
+    # 改成你的本地真实路径
+    - --cuda-path=/path/to/your/cuda
+    # A10，以后换卡就改这里
+    - --cuda-gpu-arch=sm_86
+    # 没有 libdevice，只做语法分析
+    - -nocudalib
+    # 对于无 NVIDIA 显卡的本地开发环境（如 macOS/Windows 纯代码阅读与编写）生效
+    # 其作用是注入 CUDA <<<>>> 语法解析桩文件，消除无完整编译环境时的语法红线
+    - -include
+    # 改成你的本地真实路径
+    - /path/to/your/project/.clangd_cuda_stub.h
+---
+If:
+  PathMatch: .*\.(cu|cuh)$
+CompileFlags:
+  Add: [-x, cuda]
