@@ -3,6 +3,7 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
+#include <cstdio>
 #include <type_traits>
 
 #define CUDA_CHECK(x)                                                         \

@@ -33,8 +33,7 @@ inline constexpr std::array<BenchmarkMatrixSize, 6> DEFAULT_SIZES = {
     {{512, 512, 512},
      {1024, 1024, 1024},
      {2048, 2048, 2048},
-     // Might take long to test
-     //  {4096, 4096, 4096},
+     {4096, 4096, 4096},
      // Non-square matrices
      {1024, 512, 2048},
      {2048, 4096, 1024}}};

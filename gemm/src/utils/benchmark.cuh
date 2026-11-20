@@ -19,14 +19,16 @@ struct BenchmarkResult {
     float bandwidth_gbps;
     bool is_reference;
     bool is_correct;
+    int error_count;
     float max_error;
 
     void print() const {
         printf(
-            "| %-20s | %4d x %4d x %4d | time=%8.3f ms | %8.2f GFLOPS | %8.2f "
-            "GB/s | %-4s | error: %8.2e |\n",
+            "| %-18s | %4d %4d %4d | time=%8.3f ms | %8.2f GFLOPS | %8.2f "
+            "GB/s | %-4s | %9d | %8.2e |\n",
             kernel_name.c_str(), M, K, N, time_ms, gflops, bandwidth_gbps,
-            is_reference ? "REF" : (is_correct ? "PASS" : "FAIL"), max_error);
+            is_reference ? "REF" : (is_correct ? "PASS" : "FAIL"), error_count,
+            max_error);
     }
 };
 
@@ -177,10 +179,12 @@ private:
 
             result.is_reference = false;
             result.is_correct = verify_result.is_passed();
-            result.max_error = verify_result.max_rel_error;
+            result.error_count = verify_result.error_count;
+            result.max_error = verify_result.max_abs_error;
         } else {
             result.is_reference = true;
             result.is_correct = true;
+            result.error_count = 0;
             result.max_error = 0.0f;
         }
 
