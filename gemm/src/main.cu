@@ -38,10 +38,10 @@ constexpr std::array<BenchmarkMatrixSize, 6> MATRIX_SIZES_OF_DEFAULT_MODE = {
      {1024, 512, 2048},
      {2048, 4096, 1024}}};
 
-inline constexpr int WARMUP_RUNS_OF_NCU_MODE = 3;
-inline constexpr int BENCHMARK_RUNS_OF_NCU_MODE = 5;
+inline constexpr int WARMUP_RUNS_OF_PROFILE_MODE = 3;
+inline constexpr int BENCHMARK_RUNS_OF_PROFILE_MODE = 5;
 
-constexpr std::array<BenchmarkMatrixSize, 6> MATRIX_SIZES_OF_NCU_MODE = {
+constexpr std::array<BenchmarkMatrixSize, 6> MATRIX_SIZES_OF_PROFILE_MODE = {
     // Square matrices
     {{512, 512, 512}, {1024, 1024, 1024}, {2048, 2048, 2048}}};
 
@@ -76,21 +76,22 @@ int main(int argc, char* argv[]) {
 
     print_gpu_info();
 
-    // When ncu mode is enabled, run less iterations and test smaller matrices
-    // to save time.
-    bool use_ncu_mode = false;
-    if (argc > 1 && std::string(argv[1]) == "-ncu") {
-        use_ncu_mode = true;
+    // When profile mode is enabled, run less iterations and test smaller
+    // matrices to save time.
+    bool use_profile_mode = false;
+    if (argc > 1 && std::string(argv[1]) == "-profile") {
+        use_profile_mode = true;
     }
 
-    printf("Using %s mode...\n", use_ncu_mode ? "ncu" : "default");
+    printf("Using %s mode...\n", use_profile_mode ? "profile" : "default");
 
-    int warmup_runs =
-        use_ncu_mode ? WARMUP_RUNS_OF_NCU_MODE : WARMUP_RUNS_OF_DEFAULT_MODE;
-    int benchmark_runs = use_ncu_mode ? BENCHMARK_RUNS_OF_NCU_MODE
-                                      : BENCHMARK_RUNS_OF_DEFAULT_MODE;
+    int warmup_runs = use_profile_mode ? WARMUP_RUNS_OF_PROFILE_MODE
+                                       : WARMUP_RUNS_OF_DEFAULT_MODE;
+    int benchmark_runs = use_profile_mode ? BENCHMARK_RUNS_OF_PROFILE_MODE
+                                          : BENCHMARK_RUNS_OF_DEFAULT_MODE;
     const std::array<BenchmarkMatrixSize, 6>& matrix_sizes =
-        use_ncu_mode ? MATRIX_SIZES_OF_NCU_MODE : MATRIX_SIZES_OF_DEFAULT_MODE;
+        use_profile_mode ? MATRIX_SIZES_OF_PROFILE_MODE
+                         : MATRIX_SIZES_OF_DEFAULT_MODE;
 
     for (const auto& size : matrix_sizes) {
         run_benchmark(size.M, size.K, size.N, warmup_runs, benchmark_runs);
