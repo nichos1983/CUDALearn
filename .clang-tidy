@@ -30,14 +30,16 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.FunctionCase
     value: lower_case
-  - key: readability-identifier-naming.VariableCase
-    value: lower_case
+  # - key: readability-identifier-naming.VariableCase
+  #   value: lower_case
   - key: readability-identifier-naming.ParameterCase
     value: lower_case
   - key: readability-identifier-naming.MemberCase
     value: lower_case
   # Allow parameters for all upper cases, e.g. M, N, K, BATCH_SIZE
   - key: readability-identifier-naming.ParameterIgnoredRegexp
+    value: "^[A-Z][A-Z0-9_]*$"
+  - key: readability-identifier-naming.MemberIgnoredRegexp
     value: "^[A-Z][A-Z0-9_]*$"
   - key: readability-identifier-naming.ConstantCase
     value: UPPER_CASE
@@ -47,7 +49,7 @@ CheckOptions:
     value: k
   - key: readability-identifier-naming.ConstexprVariableCase
     value: UPPER_CASE
-  - key: readability-identifier-naming.PrivateMemberSuffix
+  - key: readability-identifier-naming.PrivateMemberPrefix
     value: _
   - key: readability-identifier-naming.NamespaceCase
     value: lower_case

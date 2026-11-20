@@ -5,7 +5,7 @@ BasedOnStyle: Google
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
-ColumnLimit: 100
+ColumnLimit: 80
 
 # 2. 大括号风格：紧跟同行（Attach），节省纵向屏幕空间
 BreakBeforeBraces: Attach
