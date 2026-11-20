@@ -24,7 +24,7 @@ struct BenchmarkResult {
 
     void print() const {
         printf(
-            "| %-18s | %4d %4d %4d | time=%8.3f ms | %8.2f GFLOPS | %8.2f "
+            "| %-14s | %4d %4d %4d | time=%8.3f ms | %8.2f GFLOPS | %6.2f "
             "GB/s | %-4s | %4d | %8.2e |\n",
             kernel_name.c_str(), M, K, N, time_ms, gflops, bandwidth_gbps,
             is_reference ? "REF" : (is_correct ? "PASS" : "FAIL"), error_count,
