@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=none
 # 0. Based on Google C++ Style Guide
 BasedOnStyle: Google
 
@@ -18,8 +19,8 @@ PointerAlignment: Left
 ReferenceAlignment: Left
 
 # 4. CUDA 模板与长函数声明优化（防止 template<...> 挤在同一行导致极度难读）
-BreakTemplateDeclarations: Yes
-BinPackParameters: BinPack
+AlwaysBreakTemplateDeclarations: Yes
+BinPackParameters: true
 BinPackArguments: true
 
 # 5. 命名空间与访问修饰符（避免 namespace cuda_utils {} 内部整体缩进浪费宽度）
@@ -28,9 +29,8 @@ AccessModifierOffset: -4
 
 # 6. 头文件排序：保持原有引入顺序（防止 CUDA 头文件如 cuda_runtime.h 与自定义 .cuh 顺序被打乱引发宏冲突）
 # SortIncludes: Never
-SortIncludes:
-  Enabled: true
+SortIncludes: CaseSensitive
 
 # 7. 注释与空行控制
-ReflowComments: Always
+ReflowComments: true
 MaxEmptyLinesToKeep: 1
