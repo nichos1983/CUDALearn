@@ -11,7 +11,7 @@ void print_gpu_info() {
     cudaDeviceProp prop;
     CUDA_CHECK(cudaGetDeviceProperties(&prop, device));
 
-    printf("\n========== GPU Device: %s ==========\n", prop.name);
+    printf("\nGPU Device: %s\n", prop.name);
     printf("  Compute Capability: %d.%d\n", prop.major, prop.minor);
     printf("  SM Count: %d\n", prop.multiProcessorCount);
     printf("  Max Threads Per Block: %d\n", prop.maxThreadsPerBlock);
@@ -29,7 +29,7 @@ void print_gpu_info() {
     printf("\n");
 }
 
-void print_matrix(const float* data, int rows, int cols, const char* name) {
+void print_matrix(const float *data, int rows, int cols, const char *name) {
     printf("Matrix %s (%d x %d):\n", name, rows, cols);
     for (int i = 0; i < rows && i < 8; ++i) {
         for (int j = 0; j < cols && j < 8; ++j) {
@@ -39,12 +39,13 @@ void print_matrix(const float* data, int rows, int cols, const char* name) {
             printf("...");
         printf("\n");
     }
+
     if (rows > 8)
         printf("...\n");
     printf("\n");
 }
 
-void init_random_matrix(float* data, int rows, int cols, float min_val,
+void init_random_matrix(float *data, int rows, int cols, float min_val,
                         float max_val, unsigned int seed) {
     std::mt19937 gen(seed);
     std::uniform_real_distribution<float> dist(min_val, max_val);
@@ -54,13 +55,13 @@ void init_random_matrix(float* data, int rows, int cols, float min_val,
     }
 }
 
-void init_zero_matrix(float* data, int rows, int cols) {
+void init_zero_matrix(float *data, int rows, int cols) {
     for (int i = 0; i < rows * cols; ++i) {
         data[i] = 0.0f;
     }
 }
 
-void init_identity_matrix(float* data, int n) {
+void init_identity_matrix(float *data, int n) {
     for (int i = 0; i < n * n; ++i) {
         data[i] = 0.0f;
     }
@@ -69,7 +70,7 @@ void init_identity_matrix(float* data, int n) {
     }
 }
 
-void init_constant_matrix(float* data, int rows, int cols, float val) {
+void init_constant_matrix(float *data, int rows, int cols, float val) {
     for (int i = 0; i < rows * cols; ++i) {
         data[i] = val;
     }
