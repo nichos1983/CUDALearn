@@ -41,7 +41,7 @@ constexpr std::array<BenchmarkMatrixSize, 6> MATRIX_SIZES_OF_DEFAULT_MODE = {
 inline constexpr int WARMUP_RUNS_OF_PROFILE_MODE = 3;
 inline constexpr int BENCHMARK_RUNS_OF_PROFILE_MODE = 5;
 
-constexpr std::array<BenchmarkMatrixSize, 6> MATRIX_SIZES_OF_PROFILE_MODE = {
+constexpr std::array<BenchmarkMatrixSize, 3> MATRIX_SIZES_OF_PROFILE_MODE = {
     // Square matrices
     {{512, 512, 512}, {1024, 1024, 1024}, {2048, 2048, 2048}}};
 
@@ -89,9 +89,15 @@ int main(int argc, char* argv[]) {
                                        : WARMUP_RUNS_OF_DEFAULT_MODE;
     int benchmark_runs = use_profile_mode ? BENCHMARK_RUNS_OF_PROFILE_MODE
                                           : BENCHMARK_RUNS_OF_DEFAULT_MODE;
-    const std::array<BenchmarkMatrixSize, 6>& matrix_sizes =
-        use_profile_mode ? MATRIX_SIZES_OF_PROFILE_MODE
-                         : MATRIX_SIZES_OF_DEFAULT_MODE;
+
+    auto matrix_sizes = [&]() -> std::vector<BenchmarkMatrixSize> {
+        if (use_profile_mode) {
+            return {MATRIX_SIZES_OF_PROFILE_MODE.begin(),
+                    MATRIX_SIZES_OF_PROFILE_MODE.end()};
+        }
+        return {MATRIX_SIZES_OF_DEFAULT_MODE.begin(),
+                MATRIX_SIZES_OF_DEFAULT_MODE.end()};
+    }();
 
     for (const auto& size : matrix_sizes) {
         run_benchmark(size.M, size.K, size.N, warmup_runs, benchmark_runs);
