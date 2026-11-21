@@ -25,12 +25,12 @@ struct BenchmarkMatrixSize {
     int N;
 };
 
+// Default mode parameters
 inline constexpr int WARMUP_RUNS_OF_DEFAULT_MODE = 5;
 inline constexpr int BENCHMARK_RUNS_OF_DEFAULT_MODE = 10;
-
 constexpr std::array<BenchmarkMatrixSize, 6> MATRIX_SIZES_OF_DEFAULT_MODE = {
-    // Square matrices
-    {{512, 512, 512},
+    {// Square matrices
+     {512, 512, 512},
      {1024, 1024, 1024},
      {2048, 2048, 2048},
      {4096, 4096, 4096},
@@ -38,12 +38,17 @@ constexpr std::array<BenchmarkMatrixSize, 6> MATRIX_SIZES_OF_DEFAULT_MODE = {
      {1024, 512, 2048},
      {2048, 4096, 1024}}};
 
-inline constexpr int WARMUP_RUNS_OF_PROFILE_MODE = 3;
-inline constexpr int BENCHMARK_RUNS_OF_PROFILE_MODE = 5;
-
-constexpr std::array<BenchmarkMatrixSize, 3> MATRIX_SIZES_OF_PROFILE_MODE = {
-    // Square matrices
-    {{512, 512, 512}, {1024, 1024, 1024}, {2048, 2048, 2048}}};
+// Profile mode parameters
+inline constexpr int WARMUP_RUNS_OF_PROFILE_MODE = 1;
+inline constexpr int BENCHMARK_RUNS_OF_PROFILE_MODE = 3;
+constexpr std::array<BenchmarkMatrixSize, 5> MATRIX_SIZES_OF_PROFILE_MODE = {
+    {// Square matrices
+     {256, 256, 256},
+     {512, 512, 512},
+     {1024, 1024, 1024},
+     {2048, 2048, 2048},
+     // Non-square matrices
+     {2048, 4096, 1024}}};
 
 void naive_kernel(const float* A, const float* B, float* C, int M, int K,
                   int N) {
