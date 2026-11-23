@@ -16,8 +16,12 @@ struct BenchmarkResult {
     int M, K, N;
     float time_ms;
     float gflops;
+    // It's an estimation, the accurate value should be checked in Nsight
+    // reports.
     float bandwidth_gbps;
     bool is_reference;
+    // When is_reference is true, verification is skipped, so is_correct
+    // is always true.
     bool is_correct;
     int error_count;
     float max_error;
@@ -49,6 +53,10 @@ public:
         CUDA_CHECK(cudaEventDestroy(_stop));
         CUBLAS_CHECK(cublasDestroy(_cublas_handle));
     }
+
+    // Forbid copy semantics
+    SGEMMBenchmark(const SGEMMBenchmark&) = delete;
+    SGEMMBenchmark& operator=(const SGEMMBenchmark&) = delete;
 
     /**
      * @brief Run a kernel and verify the result.
@@ -108,6 +116,11 @@ private:
         // used when is_verify is true
         float* d_C_ref;
 
+        // Todo:
+        // The current implementation of CUDA memory management is just for demo
+        // and not optimized for performance. These calls to cudaMalloc and
+        // cudaFree could be pulled out of the testing loop and only be
+        // called once for each specific matrix size.
         CUDA_CHECK(cudaMalloc(&d_A, M * K * sizeof(float)));
         CUDA_CHECK(cudaMalloc(&d_B, K * N * sizeof(float)));
         CUDA_CHECK(cudaMalloc(&d_C, M * N * sizeof(float)));

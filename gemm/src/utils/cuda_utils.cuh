@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <type_traits>
 
 #define CUDA_CHECK(x)                                                         \

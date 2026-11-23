@@ -21,6 +21,7 @@ __global__ void naive_sgemm_kernel(const float* __restrict__ A,
             sum += A[row * K + k] * B[k * N + col];
         }
 
+        // The access pattern of C[row * N + col] is the same as B[k * N + col]
         C[row * N + col] = sum;
     }
 }

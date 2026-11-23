@@ -29,6 +29,10 @@ VerifyResult SGEMMVerifier::verify(const float* h_test, const float* h_ref,
         }
 
         float abs_error = std::abs(test_val - ref_val);
+        // We use EPSILON to avoid division by zero. So the value of
+        // rel_error in occasional cases might be large enough to scare you.
+        // But rel_error is just for logical integrity. We only use abs_error to
+        // check if the test is passed.
         float rel_error = abs_error / (std::abs(ref_val) + constants::EPSILON);
 
         result.max_abs_error = std::max(result.max_abs_error, abs_error);
