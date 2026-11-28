@@ -7,16 +7,18 @@
  * 3. Bank conflict free
  * 4. Double buffer
  * 5. Tensor core
- * 6. cuBLAS
+ * 6. cuBLAS reference
  */
 
 #include <array>
 #include <cstdio>
 // #include <cmath>
 // #include <cstdlib>
-// #include <vector>
+#include <string>
+#include <vector>
 
 #include "kernels/naive_sgemm.cuh"
+#include "kernels/tiled_sgemm.cuh"
 #include "utils/benchmark.cuh"
 
 struct BenchmarkMatrixSize {
@@ -28,31 +30,44 @@ struct BenchmarkMatrixSize {
 // Default mode parameters
 inline constexpr int WARMUP_RUNS_OF_DEFAULT_MODE = 5;
 inline constexpr int BENCHMARK_RUNS_OF_DEFAULT_MODE = 10;
-constexpr std::array<BenchmarkMatrixSize, 6> MATRIX_SIZES_OF_DEFAULT_MODE = {
-    {// Square matrices
-     {512, 512, 512},
-     {1024, 1024, 1024},
-     {2048, 2048, 2048},
-     {4096, 4096, 4096},
-     // Non-square matrices
-     {1024, 512, 2048},
-     {2048, 4096, 1024}}};
+constexpr std::array<BenchmarkMatrixSize, 7> MATRIX_SIZES_OF_DEFAULT_MODE = {{
+    // Square matrices
+    {512, 512, 512},
+    {1024, 1024, 1024},
+    {2048, 2048, 2048},
+    {4096, 4096, 4096},
+    // Non-square matrices
+    {1024, 512, 2048},
+    {2048, 4096, 1024},
+    // Non multiple of tile size
+    {513, 257, 769},
+}};
 
-// Profile mode parameters
+// Profile mode:
+// Smaller workloads for easier kernel-level profiling.
 inline constexpr int WARMUP_RUNS_OF_PROFILE_MODE = 1;
 inline constexpr int BENCHMARK_RUNS_OF_PROFILE_MODE = 3;
-constexpr std::array<BenchmarkMatrixSize, 5> MATRIX_SIZES_OF_PROFILE_MODE = {
-    {// Square matrices
-     {256, 256, 256},
-     {512, 512, 512},
-     {1024, 1024, 1024},
-     {2048, 2048, 2048},
-     // Non-square matrices
-     {2048, 4096, 1024}}};
+constexpr std::array<BenchmarkMatrixSize, 6> MATRIX_SIZES_OF_PROFILE_MODE = {{
+    // Square matrices
+    {256, 256, 256},
+    {512, 512, 512},
+    {1024, 1024, 1024},
+    {2048, 2048, 2048},
+    // Non-square matrices
+    {2048, 4096, 1024},
+    // Non multiple of tile size
+    {513, 257, 769},
+}};
 
 void naive_kernel(const float* A, const float* B, float* C, int M, int K,
                   int N) {
     launch_naive_sgemm<32>(A, B, C, M, K, N);
+}
+
+template <int BM, int BN, int BK, int THREADS_M>
+void tiled_kernel(const float* A, const float* B, float* C, int M, int K,
+                  int N) {
+    launch_tiled_sgemm_compact<BM, BN, BK, THREADS_M>(A, B, C, M, K, N);
 }
 
 void run_benchmark(int M, int K, int N, int warmup_runs, int benchmark_runs) {
@@ -70,6 +85,30 @@ void run_benchmark(int M, int K, int N, int warmup_runs, int benchmark_runs) {
     benchmark.run_kernel("Naive", naive_kernel, M, K, N, warmup_runs,
                          benchmark_runs);
 
+    printf("Running tiled SGEMM...\n");
+    // These configurations vary the CTA output tile and thread mapping.
+    // All use BK=32 so that the effect of BM, BN, and THREADS_M is easier
+    // to compare in this first set of experiments.
+    benchmark.run_kernel("Tiled BM32_BN32_BK32_TM8",
+                         tiled_kernel<32, 32, 32, 8>, M, K, N, warmup_runs,
+                         benchmark_runs);
+
+    benchmark.run_kernel("Tiled BM64_BN32_BK32_TM8",
+                         tiled_kernel<64, 32, 32, 8>, M, K, N, warmup_runs,
+                         benchmark_runs);
+
+    benchmark.run_kernel("Tiled BM64_BN64_BK32_TM8",
+                         tiled_kernel<64, 64, 32, 8>, M, K, N, warmup_runs,
+                         benchmark_runs);
+
+    benchmark.run_kernel("Tiled BM128_BN64_BK32_TM8",
+                         tiled_kernel<128, 64, 32, 8>, M, K, N, warmup_runs,
+                         benchmark_runs);
+
+    benchmark.run_kernel("Tiled BM128_BN64_BK32_TM16",
+                         tiled_kernel<128, 64, 32, 16>, M, K, N, warmup_runs,
+                         benchmark_runs);
+
     benchmark.print_results();
 }
 
@@ -81,12 +120,10 @@ int main(int argc, char* argv[]) {
 
     print_gpu_info();
 
-    // When profile mode is enabled, run less iterations and test smaller
-    // matrices to save time.
-    bool use_profile_mode = false;
-    if (argc > 1 && std::string(argv[1]) == "-profile") {
-        use_profile_mode = true;
-    }
+    // Profile mode uses fewer iterations and smaller matrices to reduce
+    // profiling overhead and make individual kernel launches easier to inspect.
+    const bool use_profile_mode =
+        (argc > 1 && std::string(argv[1]) == "-profile");
 
     printf("Using %s mode...\n", use_profile_mode ? "profile" : "default");
 

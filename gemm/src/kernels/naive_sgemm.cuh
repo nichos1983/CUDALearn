@@ -35,7 +35,7 @@ __global__ void naive_sgemm_kernel(const float* __restrict__ A,
  */
 template <int BLOCK_SIZE = 32>
 void launch_naive_sgemm(const float* A, const float* B, float* C, int M, int K,
-                        int N, cudaStream_t stream = 0) {
+                        int N, cudaStream_t stream = nullptr) {
     dim3 block(BLOCK_SIZE, BLOCK_SIZE);
     dim3 grid(ceil_div(N, block.x), ceil_div(M, block.y));
 

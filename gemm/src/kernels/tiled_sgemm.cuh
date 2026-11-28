@@ -4,27 +4,30 @@
 #include "../utils/cuda_utils.cuh"
 
 /**
- * @brief Tiled SGEMM Kernel using shared memory
+ * @brief SGEMM Kernel using shared memory tiling.
  * A: M x K
  * B: K x N
  * C: M x N
  * CTA output tile: BM x BN
  * K tile: BK
- * CTA threads (Block dimension): THREADS_M x BN
- * Each thread computes ROWS_PER_THREAD = BM / THREADS_M output elements.
+ * Each CTA computes a BM x BN output tile. It processes the K dimension
+ * in chunks of BK, staging the corresponding A and B tiles in shared memory.
+ *
+ * Each thread computes ROWS_PER_THREAD = BM / THREADS_M output elements
+ * in one output column.
  *
  */
 template <int BM, int BN, int BK, int THREADS_M>
 __global__ void tiled_sgemm_kernel(const float* __restrict__ A,
                                    const float* __restrict__ B,
-                                   float* __restrict__ C, int M, int N, int K,
+                                   float* __restrict__ C, int M, int K, int N,
                                    int lda, int ldb, int ldc) {
     static_assert(BM > 0 && BN > 0 && BK > 0,
                   "Tile dimensions must be positive");
     static_assert(THREADS_M > 0, "THREADS_M must be positive");
-    static_assert(BM % THREADS_M == 0, "BM must be a multiple of THREADS_M");
+    static_assert(BM % THREADS_M == 0, "BM must be divisible by THREADS_M");
     static_assert(THREADS_M * BN <= constants::MAX_THREADS_PER_BLOCK,
-                  "CTA thread count not exceed the limitation");
+                  "The CTA thread count exceeds the device limit");
 
     constexpr int ROWS_PER_THREAD = BM / THREADS_M;
     constexpr int NUM_THREADS = THREADS_M * BN;
@@ -34,29 +37,29 @@ __global__ void tiled_sgemm_kernel(const float* __restrict__ A,
 
     const int tx = threadIdx.x;
     const int ty = threadIdx.y;
-    // One dimensional thread index in the CTA
+    // Flatten the 2D thread coordinates into a linear CTA thread ID.
     const int tid = ty * BN + tx;
 
     const int block_row_start = blockIdx.y * BM;
     const int block_col_start = blockIdx.x * BN;
 
-    // Each thread computes ROWS_PER_THREAD output elements in the same column.
-    // The accumulator keeps the sum along num_k_tiles iterations.
+    // Each thread owns ROWS_PER_THREAD output elements in the same column.
+    // The accumulator remains live across all K tiles.
     float accumulator[ROWS_PER_THREAD] = {};
 
     const int num_k_tiles = ceil_div(K, BK);
 
-    // Each iteration computes a BM x BN output tile along the K dimension.
+    // Each iteration accumulates one BM x BN output tile
+    // over a BK-wide slice of the reduction dimension.
     for (int tile = 0; tile < num_k_tiles; tile++) {
-        // The start k index of the tile in the global matrix
-        // k is A's column and B's row
+        // The start k index of the tile in the global matrix.
         const int tile_k_start = tile * BK;
 
-        // 1. Load A's BM x BN tile into As.
-        // Each thread loads multiple elements.
+        // Stage the BM x BK tile of A in As.
+        // Threads cooperatively load the tile; each thread may load multiple
+        // elements when the tile contains more elements than the CTA has
+        // threads.
         for (int idx = tid; idx < BM * BK; idx += NUM_THREADS) {
-            // Calculate the local indices in the local matrix laid in the
-            // shared memory.
             const int local_row = idx / BK;
             const int local_k = idx % BK;
 
@@ -70,11 +73,9 @@ __global__ void tiled_sgemm_kernel(const float* __restrict__ A,
                                          : 0.0f;
         }
 
-        // 2. Load B's BK x BN tile into Bs.
+        // Stage the BK x BN tile of B into Bs.
         // Each thread loads multiple elements.
         for (int idx = tid; idx < BK * BN; idx += NUM_THREADS) {
-            // Calculate the local indices in the local matrix laid in the
-            // shared memory.
             const int local_k = idx / BN;
             const int local_col = idx % BN;
 
@@ -88,11 +89,11 @@ __global__ void tiled_sgemm_kernel(const float* __restrict__ A,
                                          : 0.0f;
         }
 
-        // All tile values must be loaded before the computation.
+        // Ensure the entire shared-memory tile is ready before it is consumed.
         __syncthreads();
 
-        // Each iteration computes ROWS_PER_THREAD elements in the same column
-        // in the output tile.
+        // Accumulate this K tile. For each k, a B value is reused across
+        // ROWS_PER_THREAD output rows owned by the same thread.
 #pragma unroll
         for (int k = 0; k < BK; k++) {
             const float b = Bs[k][tx];
@@ -104,13 +105,12 @@ __global__ void tiled_sgemm_kernel(const float* __restrict__ A,
             }
         }
 
-        // When the next iteration along k starts, the values in As and Bs will
-        // be overwritten. So synchronize to make sure the computation of As and
-        // Bs in the current iteration is complete.
+        // Do not overwrite the shared-memory buffers for the next K tile until
+        // every thread has finished reading the current tile.
         __syncthreads();
     }
 
-    // Write the output tile to global memory.
+    // Store the output tile. Threads write their owned rows in the same column.
 #pragma unroll
     for (int r = 0; r < ROWS_PER_THREAD; r++) {
         const int local_row = r * THREADS_M + ty;
@@ -121,4 +121,51 @@ __global__ void tiled_sgemm_kernel(const float* __restrict__ A,
             C[global_row * ldc + global_col] = accumulator[r];
         }
     }
+}
+
+/**
+ * @brief Launch the tiled SGEMM kernel for row-major matrices with explicit
+ * leading dimensions.
+ *
+ * lda, ldb, and ldc are physical row strides measured in elements. They may
+ * be larger than the corresponding logical column counts to support padded
+ * matrices and submatrix views.
+ *
+ * Preconditions:
+ *   M, N, K >= 0
+ *   lda >= K, ldb >= N, ldc >= N
+ *   Device pointers refer to valid allocations whenever the corresponding
+ *   matrix is accessed.
+ *
+ * If K == 0, the kernel writes zeros to C, consistent with C = A * B.
+ */
+template <int BM = 32, int BN = 32, int BK = 32, int THREADS_M = 8>
+void launch_tiled_sgemm(const float* __restrict__ A,
+                        const float* __restrict__ B, float* __restrict__ C,
+                        int M, int K, int N, int lda, int ldb, int ldc,
+                        cudaStream_t stream = nullptr) {
+    if (M == 0 || N == 0) {
+        return;
+    }
+
+    const dim3 block(BN, THREADS_M);
+    const dim3 grid(ceil_div(N, BN), ceil_div(M, BM));
+
+    tiled_sgemm_kernel<BM, BN, BK, THREADS_M>
+        <<<grid, block, 0, stream>>>(A, B, C, M, K, N, lda, ldb, ldc);
+
+    CUDA_CHECK(cudaGetLastError());
+}
+
+/**
+ * @brief Convenience launcher for compact row-major matrices.
+ * The physical row strides are set to the logical column counts.
+ */
+template <int BM = 32, int BN = 32, int BK = 32, int THREADS_M = 8>
+void launch_tiled_sgemm_compact(const float* __restrict__ A,
+                                const float* __restrict__ B,
+                                float* __restrict__ C, int M, int K, int N,
+                                cudaStream_t stream = nullptr) {
+    launch_tiled_sgemm<BM, BN, BK, THREADS_M>(A, B, C, M, K, N, K, N, N,
+                                              stream);
 }
