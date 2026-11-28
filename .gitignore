@@ -1,6 +1,9 @@
 # Compiled files
 **/debug/
 
+# Profile files
+**/profile/
+
 # Clang config file
 .clangd
 
