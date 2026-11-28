@@ -89,25 +89,20 @@ void run_benchmark(int M, int K, int N, int warmup_runs, int benchmark_runs) {
     // These configurations vary the CTA output tile and thread mapping.
     // All use BK=32 so that the effect of BM, BN, and THREADS_M is easier
     // to compare in this first set of experiments.
-    benchmark.run_kernel("Tiled BM32_BN32_BK32_TM8",
-                         tiled_kernel<32, 32, 32, 8>, M, K, N, warmup_runs,
-                         benchmark_runs);
+    benchmark.run_kernel("Tiled 32_32_32_8", tiled_kernel<32, 32, 32, 8>, M, K,
+                         N, warmup_runs, benchmark_runs);
 
-    benchmark.run_kernel("Tiled BM64_BN32_BK32_TM8",
-                         tiled_kernel<64, 32, 32, 8>, M, K, N, warmup_runs,
-                         benchmark_runs);
+    benchmark.run_kernel("Tiled 64_32_32_8", tiled_kernel<64, 32, 32, 8>, M, K,
+                         N, warmup_runs, benchmark_runs);
 
-    benchmark.run_kernel("Tiled BM64_BN64_BK32_TM8",
-                         tiled_kernel<64, 64, 32, 8>, M, K, N, warmup_runs,
-                         benchmark_runs);
+    benchmark.run_kernel("Tiled 64_64_32_8", tiled_kernel<64, 64, 32, 8>, M, K,
+                         N, warmup_runs, benchmark_runs);
 
-    benchmark.run_kernel("Tiled BM128_BN64_BK32_TM8",
-                         tiled_kernel<128, 64, 32, 8>, M, K, N, warmup_runs,
-                         benchmark_runs);
+    benchmark.run_kernel("Tiled 128_64_32_8", tiled_kernel<128, 64, 32, 8>, M,
+                         K, N, warmup_runs, benchmark_runs);
 
-    benchmark.run_kernel("Tiled BM128_BN64_BK32_TM16",
-                         tiled_kernel<128, 64, 32, 16>, M, K, N, warmup_runs,
-                         benchmark_runs);
+    benchmark.run_kernel("Tiled 128_64_32_16", tiled_kernel<128, 64, 32, 16>, M,
+                         K, N, warmup_runs, benchmark_runs);
 
     benchmark.print_results();
 }
