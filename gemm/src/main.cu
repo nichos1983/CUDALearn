@@ -30,8 +30,9 @@ struct BenchmarkMatrixSize {
 // Default mode parameters
 inline constexpr int WARMUP_RUNS_OF_DEFAULT_MODE = 5;
 inline constexpr int BENCHMARK_RUNS_OF_DEFAULT_MODE = 10;
-constexpr std::array<BenchmarkMatrixSize, 7> MATRIX_SIZES_OF_DEFAULT_MODE = {{
+constexpr std::array<BenchmarkMatrixSize, 8> MATRIX_SIZES_OF_DEFAULT_MODE = {{
     // Square matrices
+    {256, 256, 256},
     {512, 512, 512},
     {1024, 1024, 1024},
     {2048, 2048, 2048},
